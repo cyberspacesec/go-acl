@@ -1,0 +1,53 @@
+# Go项目标准忽略文件
+
+# 编译生成的二进制文件和可执行文件
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# 项目二进制输出目录
+/bin/
+/dist/
+
+# 依赖相关
+/vendor/
+/Godeps/
+
+# IDE和编辑器文件
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 项目特定的临时文件
+/tmp*/
+tmp_*/
+app_config/
+/examples/**/tmp*/
+
+# 测试缓存
+.testcache/
+
+# 日志文件
+*.log
+
+# 覆盖率报告
+coverage.txt
+cover.out
+coverage.html
+
+# 本地配置文件（可能包含敏感信息）
+*.local.yaml
+*.local.yml
+*.local.json
+config.local.*
+
+# 自动生成的文件
+/auto_generated/
+_gen.go 
