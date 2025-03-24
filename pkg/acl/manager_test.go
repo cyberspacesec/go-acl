@@ -337,7 +337,10 @@ func TestRemoveIP(t *testing.T) {
 	}
 
 	// 测试不存在的IP
-	manager.SetIPACL(initialIPs, types.Blacklist)
+	err = manager.SetIPACL(initialIPs, types.Blacklist)
+	if err != nil {
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
+	}
 	err = manager.RemoveIP("8.8.8.8")
 	if err == nil {
 		t.Error("RemoveIP() 对于不存在的IP应返回错误")
