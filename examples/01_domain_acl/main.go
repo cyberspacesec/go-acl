@@ -14,7 +14,7 @@ func main() {
 	// 示例1: 创建黑名单模式的域名ACL（不包含子域名匹配）
 	fmt.Println("\n示例1: 创建黑名单模式的域名ACL")
 	// 创建一个阻止特定域名的黑名单，禁用子域名匹配
-	blacklist := domain.NewDomainAcl(
+	blacklist := domain.NewDomainACL(
 		[]string{"evil.com", "malware.org"}, // 要阻止的域名列表
 		types.Blacklist,                     // 列表类型：黑名单
 		false,                               // 不检查子域名
@@ -32,7 +32,7 @@ func main() {
 	// 示例2: 创建白名单模式的域名ACL（包含子域名匹配）
 	fmt.Println("\n示例2: 创建白名单模式的域名ACL")
 	// 创建一个只允许特定域名及其子域名的白名单
-	whitelist := domain.NewDomainAcl(
+	whitelist := domain.NewDomainACL(
 		[]string{"example.com", "trusted.org"}, // 要允许的域名列表
 		types.Whitelist,                        // 列表类型：白名单
 		true,                                   // 启用子域名匹配
@@ -50,7 +50,7 @@ func main() {
 	// 示例3: 动态管理域名规则
 	fmt.Println("\n示例3: 动态管理域名规则")
 	// 创建一个空的域名黑名单
-	dynamicAcl := domain.NewDomainAcl(
+	dynamicAcl := domain.NewDomainACL(
 		[]string{}, // 初始为空
 		types.Blacklist,
 		true, // 启用子域名匹配
@@ -87,7 +87,7 @@ func main() {
 
 	// 示例4: 域名规范化
 	fmt.Println("\n示例4: 域名规范化功能")
-	normAcl := domain.NewDomainAcl(
+	normAcl := domain.NewDomainACL(
 		[]string{"example.com"}, // 只有一个域名
 		types.Blacklist,
 		false,
@@ -119,7 +119,7 @@ func main() {
 }
 
 // 辅助函数：检查一系列域名
-func checkDomains(acl *domain.DomainAcl, domains []string) {
+func checkDomains(acl *domain.DomainACL, domains []string) {
 	listType := "黑名单"
 	if acl.GetListType() == types.Whitelist {
 		listType = "白名单"
@@ -132,7 +132,7 @@ func checkDomains(acl *domain.DomainAcl, domains []string) {
 }
 
 // 辅助函数：检查单个域名
-func checkDomain(acl *domain.DomainAcl, domain string) {
+func checkDomain(acl *domain.DomainACL, domain string) {
 	permission, err := acl.Check(domain)
 	if err != nil {
 		fmt.Printf("  域名 %-20s -> 错误: %v\n", domain, err)

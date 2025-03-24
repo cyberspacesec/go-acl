@@ -26,7 +26,7 @@ func main() {
 
 func example1() {
 	// 使用预定义集合创建IP黑名单，限制访问私有网络和云元数据服务
-	ipAcl, err := ip.NewIPAclWithDefaults(
+	ipAcl, err := ip.NewIPACLWithDefaults(
 		[]string{"203.0.113.1"}, // 额外的自定义IP
 		types.Blacklist,
 		[]ip.PredefinedSet{
@@ -69,7 +69,7 @@ func example1() {
 
 func example2() {
 	// 创建一个基本的IP白名单
-	ipAcl, err := ip.NewIPAcl(
+	ipAcl, err := ip.NewIPACL(
 		[]string{"203.0.113.1"}, // 初始只有一个IP
 		types.Whitelist,
 	)
@@ -121,7 +121,7 @@ func example2() {
 func example3() {
 	// 创建一个防SSRF的黑名单ACL
 	// 阻止所有特殊网络和内部地址
-	ipAcl, err := ip.NewIPAclWithDefaults(
+	ipAcl, err := ip.NewIPACLWithDefaults(
 		[]string{}, // 不添加自定义IP
 		types.Blacklist,
 		[]ip.PredefinedSet{

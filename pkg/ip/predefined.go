@@ -233,7 +233,7 @@ func GetPredefinedIPRanges(setName PredefinedSet) []string {
 	return nil
 }
 
-// NewIPAclWithDefaults 创建一个新的IP访问控制列表，同时加入预定义的IP集合
+// NewIPACLWithDefaults 创建一个新的IP访问控制列表，同时加入预定义的IP集合
 //
 // 参数:
 //   - ipRanges: 基础IP/CIDR列表
@@ -281,9 +281,9 @@ func GetPredefinedIPRanges(setName PredefinedSet) []string {
 //	    },
 //	    true // 设为true将允许这些预定义集合中的IP
 //	)
-func NewIPAclWithDefaults(ipRanges []string, listType types.ListType, predefinedSets []PredefinedSet, allowDefaultSets bool) (*IPAcl, error) {
+func NewIPACLWithDefaults(ipRanges []string, listType types.ListType, predefinedSets []PredefinedSet, allowDefaultSets bool) (*IPACL, error) {
 	// 首先创建基本的ACL
-	acl, err := NewIPAcl(ipRanges, listType)
+	acl, err := NewIPACL(ipRanges, listType)
 	if err != nil {
 		return nil, err
 	}

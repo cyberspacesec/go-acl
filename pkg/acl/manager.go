@@ -24,18 +24,18 @@ import (
 //	manager := acl.NewManager()
 //
 //	// 设置域名白名单
-//	manager.SetDomainAcl([]string{"example.com"}, types.Whitelist, true)
+//	manager.SetDomainACL([]string{"example.com"}, types.Whitelist, true)
 //
 //	// 设置IP黑名单
-//	err := manager.SetIPAcl([]string{"192.168.1.1", "10.0.0.0/8"}, types.Blacklist)
+//	err := manager.SetIPACL([]string{"192.168.1.1", "10.0.0.0/8"}, types.Blacklist)
 //
 //	// 检查访问权限
 //	domainPerm, _ := manager.CheckDomain("sub.example.com")
 //	ipPerm, _ := manager.CheckIP("8.8.8.8")
 type Manager struct {
 	mu        sync.RWMutex
-	domainAcl *domain.DomainAcl
-	ipAcl     *ip.IPAcl
+	domainACL *domain.DomainACL
+	ipACL     *ip.IPACL
 }
 
 // NewManager 创建一个新的ACL管理器
@@ -54,7 +54,7 @@ func NewManager() *Manager {
 	return &Manager{}
 }
 
-// SetDomainAcl 设置域名访问控制列表
+// SetDomainACL 设置域名访问控制列表
 //
 // 参数:
 //   - domains: 要控制的域名列表
@@ -71,17 +71,17 @@ func NewManager() *Manager {
 // 示例:
 //
 //	// 设置白名单，只允许example.com及其子域名
-//	manager.SetDomainAcl([]string{"example.com"}, types.Whitelist, true)
+//	manager.SetDomainACL([]string{"example.com"}, types.Whitelist, true)
 //
 //	// 设置黑名单，阻止特定域名（不含子域名）
-//	manager.SetDomainAcl([]string{"ads.example.com", "malware.com"}, types.Blacklist, false)
-func (m *Manager) SetDomainAcl(domains []string, listType types.ListType, includeSubdomains bool) {
+//	manager.SetDomainACL([]string{"ads.example.com", "malware.com"}, types.Blacklist, false)
+func (m *Manager) SetDomainACL(domains []string, listType types.ListType, includeSubdomains bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.domainAcl = domain.NewDomainAcl(domains, listType, includeSubdomains)
+	m.domainACL = domain.NewDomainACL(domains, listType, includeSubdomains)
 }
 
-// SetIPAcl 设置IP访问控制列表
+// SetIPACL 设置IP访问控制列表
 //
 // 参数:
 //   - ipRanges: 要控制的IP或CIDR列表
@@ -98,7 +98,7 @@ func (m *Manager) SetDomainAcl(domains []string, listType types.ListType, includ
 // 示例:
 //
 //	// 设置IP黑名单
-//	err := manager.SetIPAcl([]string{
+//	err := manager.SetIPACL([]string{
 //	    "192.168.1.100",  // 单个IPv4
 //	    "10.0.0.0/8",     // IPv4 CIDR
 //	    "2001:db8::/32",  // IPv6 CIDR
@@ -107,19 +107,19 @@ func (m *Manager) SetDomainAcl(domains []string, listType types.ListType, includ
 //	if err != nil {
 //	    log.Fatalf("设置IP ACL失败: %v", err)
 //	}
-func (m *Manager) SetIPAcl(ipRanges []string, listType types.ListType) error {
-	acl, err := ip.NewIPAcl(ipRanges, listType)
+func (m *Manager) SetIPACL(ipRanges []string, listType types.ListType) error {
+	acl, err := ip.NewIPACL(ipRanges, listType)
 	if err != nil {
 		return err
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.ipAcl = acl
+	m.ipACL = acl
 	return nil
 }
 
-// SetIPAclFromFile 从文件加载IP访问控制列表
+// SetIPACLFromFile 从文件加载IP访问控制列表
 //
 // 参数:
 //   - filePath: 包含IP列表的文件路径
@@ -146,23 +146,23 @@ func (m *Manager) SetIPAcl(ipRanges []string, listType types.ListType) error {
 // 示例:
 //
 //	// 从文件加载IP黑名单
-//	err := manager.SetIPAclFromFile("./blacklist.txt", types.Blacklist)
+//	err := manager.SetIPACLFromFile("./blacklist.txt", types.Blacklist)
 //	if err != nil {
 //	    log.Printf("加载黑名单失败: %v", err)
 //	}
-func (m *Manager) SetIPAclFromFile(filePath string, listType types.ListType) error {
-	acl, err := ip.NewIPAclFromFile(filePath, listType)
+func (m *Manager) SetIPACLFromFile(filePath string, listType types.ListType) error {
+	acl, err := ip.NewIPACLFromFile(filePath, listType)
 	if err != nil {
 		return err
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.ipAcl = acl
+	m.ipACL = acl
 	return nil
 }
 
-// SaveIPAclToFile 将当前IP访问控制列表保存到文件
+// SaveIPACLToFile 将当前IP访问控制列表保存到文件
 // 如果文件已存在，overwrite参数决定是否覆盖文件
 //
 // 参数:
@@ -186,7 +186,7 @@ func (m *Manager) SetIPAclFromFile(filePath string, listType types.ListType) err
 // 示例:
 //
 //	// 保存当前IP列表到文件（不覆盖现有文件）
-//	err := manager.SaveIPAclToFile("./my_acl.txt", false)
+//	err := manager.SaveIPACLToFile("./my_acl.txt", false)
 //	if err != nil {
 //	    if errors.Is(err, config.ErrFileExists) {
 //	        log.Println("文件已存在，未覆盖")
@@ -196,19 +196,19 @@ func (m *Manager) SetIPAclFromFile(filePath string, listType types.ListType) err
 //	        log.Printf("保存失败: %v", err)
 //	    }
 //	}
-func (m *Manager) SaveIPAclToFile(filePath string, overwrite bool) error {
+func (m *Manager) SaveIPACLToFile(filePath string, overwrite bool) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if m.ipAcl == nil {
+	if m.ipACL == nil {
 		return types.ErrNoAcl
 	}
 
-	return m.ipAcl.SaveToFile(filePath, overwrite)
+	return m.ipACL.SaveToFile(filePath, overwrite)
 }
 
-// SaveIPAclToFileWithOverwrite 兼容旧版API，默认覆盖已存在的文件
-// 已废弃：请改用 SaveIPAclToFile
+// SaveIPACLToFileWithOverwrite 兼容旧版API，默认覆盖已存在的文件
+// 已废弃：请改用 SaveIPACLToFile
 //
 // 参数:
 //   - filePath: 要保存的文件路径
@@ -216,14 +216,14 @@ func (m *Manager) SaveIPAclToFile(filePath string, overwrite bool) error {
 // 返回:
 //   - error: 保存过程中的错误
 //
-// 此方法等同于调用 SaveIPAclToFile(filePath, true)
+// 此方法等同于调用 SaveIPACLToFile(filePath, true)
 //
 // 示例:
 //
 //	// 保存并覆盖现有文件
-//	err := manager.SaveIPAclToFileWithOverwrite("./my_acl.txt")
-func (m *Manager) SaveIPAclToFileWithOverwrite(filePath string) error {
-	return m.SaveIPAclToFile(filePath, true)
+//	err := manager.SaveIPACLToFileWithOverwrite("./my_acl.txt")
+func (m *Manager) SaveIPACLToFileWithOverwrite(filePath string) error {
+	return m.SaveIPACLToFile(filePath, true)
 }
 
 // AddIPFromFile 从文件添加IP或CIDR到IP访问控制列表
@@ -238,8 +238,8 @@ func (m *Manager) SaveIPAclToFileWithOverwrite(filePath string) error {
 //   - config.ErrFileNotFound: 如果文件不存在
 //   - ip.ErrInvalidIP/ip.ErrInvalidCIDR: 如果文件中包含无效IP
 //
-// 与SetIPAclFromFile不同，此方法不会替换现有ACL，而是向其添加内容。
-// 文件格式与SetIPAclFromFile相同。
+// 与SetIPACLFromFile不同，此方法不会替换现有ACL，而是向其添加内容。
+// 文件格式与SetIPACLFromFile相同。
 //
 // 示例:
 //
@@ -256,14 +256,14 @@ func (m *Manager) AddIPFromFile(filePath string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.ipAcl == nil {
+	if m.ipACL == nil {
 		return types.ErrNoAcl
 	}
 
-	return m.ipAcl.AddFromFile(filePath)
+	return m.ipACL.AddFromFile(filePath)
 }
 
-// SetIPAclWithDefaults 设置IP访问控制列表，并包含预定义的安全IP集合
+// SetIPACLWithDefaults 设置IP访问控制列表，并包含预定义的安全IP集合
 //
 // 参数:
 //   - ipRanges: 自定义的IP或CIDR列表
@@ -284,7 +284,7 @@ func (m *Manager) AddIPFromFile(filePath string) error {
 // 示例:
 //
 //	// 创建防SSRF的黑名单，阻止内网和云元数据访问
-//	err := manager.SetIPAclWithDefaults(
+//	err := manager.SetIPACLWithDefaults(
 //	    []string{"203.0.113.0/24"}, // 自定义阻止的IP范围
 //	    types.Blacklist,
 //	    []ip.PredefinedSet{
@@ -295,7 +295,7 @@ func (m *Manager) AddIPFromFile(filePath string) error {
 //	)
 //
 //	// 创建针对特定服务的白名单，允许公共DNS服务
-//	err := manager.SetIPAclWithDefaults(
+//	err := manager.SetIPACLWithDefaults(
 //	    []string{"203.0.113.5"}, // 自定义允许的IP
 //	    types.Whitelist,
 //	    []ip.PredefinedSet{
@@ -303,15 +303,15 @@ func (m *Manager) AddIPFromFile(filePath string) error {
 //	    },
 //	    true, // 将这些预定义集合作为白名单
 //	)
-func (m *Manager) SetIPAclWithDefaults(ipRanges []string, listType types.ListType, predefinedSets []ip.PredefinedSet, allowDefaultSets bool) error {
-	acl, err := ip.NewIPAclWithDefaults(ipRanges, listType, predefinedSets, allowDefaultSets)
+func (m *Manager) SetIPACLWithDefaults(ipRanges []string, listType types.ListType, predefinedSets []ip.PredefinedSet, allowDefaultSets bool) error {
+	acl, err := ip.NewIPACLWithDefaults(ipRanges, listType, predefinedSets, allowDefaultSets)
 	if err != nil {
 		return err
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.ipAcl = acl
+	m.ipACL = acl
 	return nil
 }
 
@@ -347,11 +347,11 @@ func (m *Manager) AddIP(ipRanges ...string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.ipAcl == nil {
+	if m.ipACL == nil {
 		return types.ErrNoAcl
 	}
 
-	return m.ipAcl.Add(ipRanges...)
+	return m.ipACL.Add(ipRanges...)
 }
 
 // RemoveIP 从IP访问控制列表移除一个或多个IP或CIDR
@@ -385,11 +385,11 @@ func (m *Manager) RemoveIP(ipRanges ...string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.ipAcl == nil {
+	if m.ipACL == nil {
 		return types.ErrNoAcl
 	}
 
-	return m.ipAcl.Remove(ipRanges...)
+	return m.ipACL.Remove(ipRanges...)
 }
 
 // AddPredefinedIPSet 向现有的IP访问控制列表添加一个预定义IP集合
@@ -425,11 +425,11 @@ func (m *Manager) AddPredefinedIPSet(setName ip.PredefinedSet, allowSet bool) er
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.ipAcl == nil {
+	if m.ipACL == nil {
 		return types.ErrNoAcl
 	}
 
-	return m.ipAcl.AddPredefinedSet(setName, allowSet)
+	return m.ipACL.AddPredefinedSet(setName, allowSet)
 }
 
 // AddAllSpecialNetworks 添加所有特殊网络到黑名单（用于安全防护）
@@ -467,7 +467,7 @@ func (m *Manager) AddAllSpecialNetworks() error {
 //   - domain.ErrInvalidDomain: 如果提供了无效域名
 //
 // 域名会自动标准化（移除协议、www前缀、端口号等）。
-// 如果在创建DomainAcl时设置了includeSubdomains=true，
+// 如果在创建DomainACL时设置了includeSubdomains=true，
 // 则子域名也会被匹配。
 //
 // 示例:
@@ -489,10 +489,10 @@ func (m *Manager) CheckDomain(domain string) (types.Permission, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if m.domainAcl == nil {
+	if m.domainACL == nil {
 		return types.Denied, types.ErrNoAcl
 	}
-	return m.domainAcl.Check(domain)
+	return m.domainACL.Check(domain)
 }
 
 // CheckIP 检查IP是否允许访问
@@ -532,10 +532,10 @@ func (m *Manager) CheckIP(ip string) (types.Permission, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if m.ipAcl == nil {
+	if m.ipACL == nil {
 		return types.Denied, types.ErrNoAcl
 	}
-	return m.ipAcl.Check(ip)
+	return m.ipACL.Check(ip)
 }
 
 // GetIPRanges 获取当前IP访问控制列表中的所有IP范围
@@ -564,13 +564,13 @@ func (m *Manager) GetIPRanges() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if m.ipAcl == nil {
+	if m.ipACL == nil {
 		return nil
 	}
-	return m.ipAcl.GetIPRanges()
+	return m.ipACL.GetIPRanges()
 }
 
-// GetIPAclType 获取当前IP访问控制列表的类型（黑名单或白名单）
+// GetIPACLType 获取当前IP访问控制列表的类型（黑名单或白名单）
 //
 // 返回:
 //   - types.ListType: 列表类型
@@ -584,7 +584,7 @@ func (m *Manager) GetIPRanges() []string {
 // 示例:
 //
 //	// 获取IP ACL类型
-//	listType, err := manager.GetIPAclType()
+//	listType, err := manager.GetIPACLType()
 //	if err != nil {
 //	    if errors.Is(err, types.ErrNoAcl) {
 //	        log.Println("未设置IP ACL")
@@ -594,14 +594,14 @@ func (m *Manager) GetIPRanges() []string {
 //	} else {
 //	    log.Println("当前IP ACL为白名单模式")
 //	}
-func (m *Manager) GetIPAclType() (types.ListType, error) {
+func (m *Manager) GetIPACLType() (types.ListType, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if m.ipAcl == nil {
+	if m.ipACL == nil {
 		return 0, types.ErrNoAcl
 	}
-	return m.ipAcl.GetListType(), nil
+	return m.ipACL.GetListType(), nil
 }
 
 // AddDomain 向域名访问控制列表添加一个或多个域名
@@ -635,11 +635,11 @@ func (m *Manager) AddDomain(domains ...string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.domainAcl == nil {
+	if m.domainACL == nil {
 		return types.ErrNoAcl
 	}
 
-	m.domainAcl.Add(domains...)
+	m.domainACL.Add(domains...)
 	return nil
 }
 
@@ -678,11 +678,11 @@ func (m *Manager) RemoveDomain(domains ...string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.domainAcl == nil {
+	if m.domainACL == nil {
 		return types.ErrNoAcl
 	}
 
-	return m.domainAcl.Remove(domains...)
+	return m.domainACL.Remove(domains...)
 }
 
 // GetDomains 获取当前域名访问控制列表中的所有域名
@@ -709,13 +709,13 @@ func (m *Manager) GetDomains() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if m.domainAcl == nil {
+	if m.domainACL == nil {
 		return nil
 	}
-	return m.domainAcl.GetDomains()
+	return m.domainACL.GetDomains()
 }
 
-// GetDomainAclType 获取当前域名访问控制列表的类型（黑名单或白名单）
+// GetDomainACLType 获取当前域名访问控制列表的类型（黑名单或白名单）
 //
 // 返回:
 //   - types.ListType: 列表类型
@@ -729,7 +729,7 @@ func (m *Manager) GetDomains() []string {
 // 示例:
 //
 //	// 获取域名ACL类型
-//	listType, err := manager.GetDomainAclType()
+//	listType, err := manager.GetDomainACLType()
 //	if err != nil {
 //	    if errors.Is(err, types.ErrNoAcl) {
 //	        log.Println("未设置域名ACL")
@@ -739,14 +739,14 @@ func (m *Manager) GetDomains() []string {
 //	} else {
 //	    log.Println("当前域名ACL为白名单模式")
 //	}
-func (m *Manager) GetDomainAclType() (types.ListType, error) {
+func (m *Manager) GetDomainACLType() (types.ListType, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if m.domainAcl == nil {
+	if m.domainACL == nil {
 		return 0, types.ErrNoAcl
 	}
-	return m.domainAcl.GetListType(), nil
+	return m.domainACL.GetListType(), nil
 }
 
 // Reset 重置所有访问控制列表
@@ -769,6 +769,6 @@ func (m *Manager) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.domainAcl = nil
-	m.ipAcl = nil
+	m.domainACL = nil
+	m.ipACL = nil
 }

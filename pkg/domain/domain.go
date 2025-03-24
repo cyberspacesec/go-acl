@@ -15,25 +15,25 @@ var (
 	ErrInvalidDomain = errors.New("无效的域名格式")
 )
 
-// DomainAcl 实现了域名访问控制
+// DomainACL 实现了域名访问控制
 // 支持黑名单和白名单两种模式，可选择是否匹配子域名
 //
 // 用法示例:
 //
 //	// 创建一个阻止特定域名及其子域名的黑名单
-//	blacklist := domain.NewDomainAcl(
+//	blacklist := domain.NewDomainACL(
 //	    []string{"badsite.com", "malware.org"},
 //	    types.Blacklist,
 //	    true // 包含子域名
 //	)
 //
 //	// 创建一个只允许特定域名的白名单
-//	whitelist := domain.NewDomainAcl(
+//	whitelist := domain.NewDomainACL(
 //	    []string{"mycompany.com", "trusted-partner.org"},
 //	    types.Whitelist,
 //	    false // 不包含子域名
 //	)
-type DomainAcl struct {
+type DomainACL struct {
 	// domains 存储控制的域名列表
 	domains []string
 	// listType 标识这是黑名单还是白名单
@@ -42,7 +42,7 @@ type DomainAcl struct {
 	includeSubdomains bool
 }
 
-// NewDomainAcl 创建一个新的域名访问控制列表
+// NewDomainACL 创建一个新的域名访问控制列表
 //
 // 参数:
 //   - domains: 要控制的域名列表
@@ -54,7 +54,7 @@ type DomainAcl struct {
 //     false: 只匹配完全相同的域名
 //
 // 返回:
-//   - *DomainAcl: 新创建的域名访问控制列表
+//   - *DomainACL: 新创建的域名访问控制列表
 //
 // 所有域名在添加前都会被自动标准化（移除协议前缀、www前缀、端口号等）。
 // 空域名或格式无效的域名会被忽略。
@@ -62,7 +62,7 @@ type DomainAcl struct {
 // 示例:
 //
 //	// 创建域名黑名单
-//	blacklist := domain.NewDomainAcl(
+//	blacklist := domain.NewDomainACL(
 //	    []string{
 //	        "bad-site.com",          // 将阻止bad-site.com
 //	        "malicious-domain.org",  // 将阻止malicious-domain.org
@@ -72,7 +72,7 @@ type DomainAcl struct {
 //	)
 //
 //	// 创建域名白名单（只允许列表中域名）
-//	whitelist := domain.NewDomainAcl(
+//	whitelist := domain.NewDomainACL(
 //	    []string{
 //	        "example.com",         // 允许example.com
 //	        "trusted-partner.net", // 允许trusted-partner.net
@@ -80,8 +80,8 @@ type DomainAcl struct {
 //	    types.Whitelist,
 //	    true  // 启用子域名匹配
 //	)
-func NewDomainAcl(domains []string, listType types.ListType, includeSubdomains bool) *DomainAcl {
-	acl := &DomainAcl{
+func NewDomainACL(domains []string, listType types.ListType, includeSubdomains bool) *DomainACL {
+	acl := &DomainACL{
 		listType:          listType,
 		includeSubdomains: includeSubdomains,
 	}
@@ -116,7 +116,7 @@ func NewDomainAcl(domains []string, listType types.ListType, includeSubdomains b
 //	    "Sub.Example.NET",         // 会被标准化为 "sub.example.net"
 //	    "blog.site.com:8080/path", // 会被标准化为 "blog.site.com"
 //	)
-func (d *DomainAcl) Add(domains ...string) {
+func (d *DomainACL) Add(domains ...string) {
 	for _, domain := range domains {
 		normalizedDomain := normalizeDomain(domain)
 		if normalizedDomain == "" {
@@ -163,7 +163,7 @@ func (d *DomainAcl) Add(domains ...string) {
 //	if errors.Is(err, domain.ErrDomainNotFound) {
 //	    log.Println("一个或多个域名不在列表中")
 //	}
-func (d *DomainAcl) Remove(domains ...string) error {
+func (d *DomainACL) Remove(domains ...string) error {
 	var notFoundErr error
 	var newDomains []string
 
@@ -214,7 +214,7 @@ func (d *DomainAcl) Remove(domains ...string) error {
 //	for i, domain := range domains {
 //	    fmt.Printf("%d. %s\n", i+1, domain)
 //	}
-func (d *DomainAcl) GetDomains() []string {
+func (d *DomainACL) GetDomains() []string {
 	// 返回副本以防止外部修改
 	result := make([]string, len(d.domains))
 	copy(result, d.domains)
@@ -237,7 +237,7 @@ func (d *DomainAcl) GetDomains() []string {
 //	} else {
 //	    fmt.Println("当前使用白名单模式，默认拒绝访问")
 //	}
-func (d *DomainAcl) GetListType() types.ListType {
+func (d *DomainACL) GetListType() types.ListType {
 	return d.listType
 }
 
@@ -276,7 +276,7 @@ func (d *DomainAcl) GetListType() types.ListType {
 //	    log.Println("拒绝访问域名")
 //	    // 处理拒绝的情况...
 //	}
-func (d *DomainAcl) Check(domain string) (types.Permission, error) {
+func (d *DomainACL) Check(domain string) (types.Permission, error) {
 	normalizedDomain := normalizeDomain(domain)
 	if normalizedDomain == "" {
 		return types.Denied, ErrInvalidDomain
@@ -311,7 +311,7 @@ func (d *DomainAcl) Check(domain string) (types.Permission, error) {
 // 则"sub.example.com"和"api.sub.example.com"都会匹配。
 //
 // 如果includeSubdomains=false，则只有完全相同的域名才会匹配。
-func (d *DomainAcl) matchDomain(domain string) bool {
+func (d *DomainACL) matchDomain(domain string) bool {
 	if domain == "" {
 		return false
 	}
@@ -372,11 +372,8 @@ func normalizeDomain(domain string) string {
 	}
 
 	// 移除协议前缀
-	if strings.HasPrefix(domain, "http://") {
-		domain = domain[7:]
-	} else if strings.HasPrefix(domain, "https://") {
-		domain = domain[8:]
-	}
+	domain = strings.TrimPrefix(domain, "http://")
+	domain = strings.TrimPrefix(domain, "https://")
 
 	// 移除用户名和密码部分
 	if atIndex := strings.Index(domain, "@"); atIndex != -1 {

@@ -115,7 +115,7 @@ func example3(tmpDir string) {
 	}
 
 	// 创建一个基本的IP ACL
-	ipAcl, err := ip.NewIPAcl([]string{
+	ipAcl, err := ip.NewIPACL([]string{
 		"192.168.1.1",
 		"10.0.0.0/8",
 	}, types.Blacklist)
@@ -163,7 +163,7 @@ func example3(tmpDir string) {
 }
 
 // 辅助函数：检查多个IP
-func checkIPs(ipAcl *ip.IPAcl, ips []string) {
+func checkIPs(ipAcl *ip.IPACL, ips []string) {
 	fmt.Println("\n检查IP访问权限:")
 	for _, ipAddr := range ips {
 		perm, err := ipAcl.Check(ipAddr)

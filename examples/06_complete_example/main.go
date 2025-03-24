@@ -89,7 +89,7 @@ func (app *WebApp) InitAccessControl() {
 		"spam-domain.net",      // 垃圾邮件域名
 		"malicious-ads.com",    // 恶意广告域名
 	}
-	app.AccessController.SetDomainAcl(domainBlacklist, types.Blacklist, true)
+	app.AccessController.SetDomainACL(domainBlacklist, types.Blacklist, true)
 
 	// 保存黑名单到文件
 	domainsFile := filepath.Join(app.ConfigDir, "domain_blacklist.txt")
@@ -106,7 +106,7 @@ func (app *WebApp) InitAccessControl() {
 
 	// 2. 创建IP安全配置（防止SSRF攻击）
 	fmt.Println("- 创建IP访问控制")
-	err = app.AccessController.SetIPAclWithDefaults(
+	err = app.AccessController.SetIPACLWithDefaults(
 		[]string{}, // 没有额外自定义IP
 		types.Blacklist,
 		[]ip.PredefinedSet{
@@ -130,7 +130,7 @@ func (app *WebApp) InitAccessControl() {
 
 	// 3. 保存配置
 	ipFile := filepath.Join(app.ConfigDir, "ip_blacklist.txt")
-	err = app.AccessController.SaveIPAclToFile(ipFile, true)
+	err = app.AccessController.SaveIPACLToFile(ipFile, true)
 	if err != nil {
 		fmt.Printf("保存IP黑名单失败: %v\n", err)
 	} else {
@@ -147,7 +147,7 @@ func (app *WebApp) PrintAccessControlConfig() {
 	fmt.Println("\n当前访问控制配置:")
 
 	// 显示域名配置
-	domainType, err := app.AccessController.GetDomainAclType()
+	domainType, err := app.AccessController.GetDomainACLType()
 	if err == nil {
 		typeStr := "黑名单"
 		if domainType == types.Whitelist {
@@ -176,7 +176,7 @@ func (app *WebApp) PrintAccessControlConfig() {
 	}
 
 	// 显示IP配置
-	ipType, err := app.AccessController.GetIPAclType()
+	ipType, err := app.AccessController.GetIPACLType()
 	if err == nil {
 		typeStr := "黑名单"
 		if ipType == types.Whitelist {
@@ -335,7 +335,7 @@ func (app *WebApp) UpdateAccessRules() {
 	// 保存更新后的配置
 	fmt.Println("- 保存更新后的配置")
 	ipFile := filepath.Join(app.ConfigDir, "ip_blacklist_updated.txt")
-	err = app.AccessController.SaveIPAclToFile(ipFile, true)
+	err = app.AccessController.SaveIPACLToFile(ipFile, true)
 	if err != nil {
 		fmt.Printf("保存更新后的IP黑名单失败: %v\n", err)
 	} else {
@@ -360,7 +360,7 @@ func (app *WebApp) LoadSecurityConfig() {
 		"trusted-partner.org",
 		"our-cdn.net",
 	}
-	app.AccessController.SetDomainAcl(trustedDomains, types.Whitelist, true)
+	app.AccessController.SetDomainACL(trustedDomains, types.Whitelist, true)
 	fmt.Println("已切换至域名白名单模式")
 
 	// 2. 设置IP白名单（阻止所有非特定IP的访问）
@@ -370,7 +370,7 @@ func (app *WebApp) LoadSecurityConfig() {
 	}
 
 	// 添加公共DNS服务器到白名单
-	err := app.AccessController.SetIPAclWithDefaults(
+	err := app.AccessController.SetIPACLWithDefaults(
 		allowedIPs,
 		types.Whitelist,
 		[]ip.PredefinedSet{ip.PublicDNS},
@@ -388,7 +388,7 @@ func (app *WebApp) LoadSecurityConfig() {
 	_ = os.Mkdir(securityConfigDir, 0755)
 
 	ipFile := filepath.Join(securityConfigDir, "whitelist.txt")
-	err = app.AccessController.SaveIPAclToFile(ipFile, true)
+	err = app.AccessController.SaveIPACLToFile(ipFile, true)
 	if err != nil {
 		fmt.Printf("保存IP白名单失败: %v\n", err)
 	}

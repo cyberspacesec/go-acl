@@ -5,7 +5,7 @@ import (
 	"github.com/cyberspacesec/go-acl/pkg/types"
 )
 
-// NewIPAclFromFile 从指定文件创建IP访问控制列表
+// NewIPACLFromFile 从指定文件创建IP访问控制列表
 //
 // 参数:
 //   - filePath: 包含IP/CIDR列表的文件路径
@@ -14,7 +14,7 @@ import (
 //     可用值: types.Blacklist（黑名单）或 types.Whitelist（白名单）
 //
 // 返回:
-//   - *IPAcl: 创建的IP访问控制列表，成功时非nil
+//   - *IPACL: 创建的IP访问控制列表，成功时非nil
 //   - error: 可能的错误:
 //   - config.ErrFileNotFound: 文件不存在
 //   - config.ErrEmptyFile: 文件为空或只包含注释
@@ -38,7 +38,7 @@ import (
 // 示例:
 //
 //	// 从文件创建IP黑名单
-//	ipAcl, err := ip.NewIPAclFromFile("./blacklist.txt", types.Blacklist)
+//	ipACL, err := ip.NewIPACLFromFile("./blacklist.txt", types.Blacklist)
 //	if err != nil {
 //	    if errors.Is(err, config.ErrFileNotFound) {
 //	        log.Println("指定的IP列表文件不存在")
@@ -54,9 +54,9 @@ import (
 //
 //	// 使用创建的ACL
 //	fmt.Printf("已创建包含 %d 个IP/CIDR的%s\n",
-//	           len(ipAcl.GetIPRanges()),
-//	           ipAcl.GetListType())
-func NewIPAclFromFile(filePath string, listType types.ListType) (*IPAcl, error) {
+//	           len(ipACL.GetIPRanges()),
+//	           ipACL.GetListType())
+func NewIPACLFromFile(filePath string, listType types.ListType) (*IPACL, error) {
 	// 从文件读取IP列表
 	ipRanges, err := config.ReadIPList(filePath)
 	if err != nil {
@@ -64,7 +64,7 @@ func NewIPAclFromFile(filePath string, listType types.ListType) (*IPAcl, error) 
 	}
 
 	// 创建IP访问控制列表
-	return NewIPAcl(ipRanges, listType)
+	return NewIPACL(ipRanges, listType)
 }
 
 // SaveToFile 将IP访问控制列表保存到文件
@@ -94,13 +94,13 @@ func NewIPAclFromFile(filePath string, listType types.ListType) (*IPAcl, error) 
 // 示例:
 //
 //	// 创建一个IP黑名单
-//	ipAcl, _ := ip.NewIPAcl(
+//	ipACL, _ := ip.NewIPACL(
 //	    []string{"192.168.1.1", "10.0.0.0/8"},
 //	    types.Blacklist
 //	)
 //
 //	// 保存到文件，允许覆盖
-//	err := ipAcl.SaveToFile("./my_blacklist.txt", true)
+//	err := ipACL.SaveToFile("./my_blacklist.txt", true)
 //	if err != nil {
 //	    log.Printf("保存IP列表失败: %v", err)
 //	    return
@@ -109,11 +109,11 @@ func NewIPAclFromFile(filePath string, listType types.ListType) (*IPAcl, error) 
 //	log.Println("成功保存IP列表到文件")
 //
 //	// 保存到另一个文件，不允许覆盖
-//	err = ipAcl.SaveToFile("./backup.txt", false)
+//	err = ipACL.SaveToFile("./backup.txt", false)
 //	if errors.Is(err, config.ErrFileExists) {
 //	    log.Println("备份文件已存在，未覆盖")
 //	}
-func (a *IPAcl) SaveToFile(filePath string, overwrite bool) error {
+func (a *IPACL) SaveToFile(filePath string, overwrite bool) error {
 	// 根据列表类型生成适当的标题
 	var header string
 	if a.listType == types.Blacklist {
@@ -128,7 +128,7 @@ func (a *IPAcl) SaveToFile(filePath string, overwrite bool) error {
 
 // SaveToFileWithOverwrite 兼容旧版API，默认覆盖已存在的文件
 // 已废弃：请改用 SaveToFile
-func (i *IPAcl) SaveToFileWithOverwrite(filePath string) error {
+func (i *IPACL) SaveToFileWithOverwrite(filePath string) error {
 	return i.SaveToFile(filePath, true)
 }
 
@@ -146,20 +146,20 @@ func (i *IPAcl) SaveToFileWithOverwrite(filePath string) error {
 //   - ErrInvalidCIDR: 文件中包含无效的CIDR格式
 //   - 其他系统错误: 如权限错误、I/O错误等
 //
-// 文件格式要求与NewIPAclFromFile相同。
+// 文件格式要求与NewIPACLFromFile相同。
 // 与创建新ACL不同，此方法将文件中的IP/CIDR添加到现有列表中，
 // 不会替换原有内容。
 //
 // 示例:
 //
 //	// 创建一个初始IP黑名单
-//	ipAcl, _ := ip.NewIPAcl(
+//	ipACL, _ := ip.NewIPACL(
 //	    []string{"192.168.1.1"},
 //	    types.Blacklist
 //	)
 //
 //	// 从文件添加更多IP
-//	err := ipAcl.AddFromFile("./more_ips.txt")
+//	err := ipACL.AddFromFile("./more_ips.txt")
 //	if err != nil {
 //	    if errors.Is(err, config.ErrFileNotFound) {
 //	        log.Println("指定的IP列表文件不存在")
@@ -172,8 +172,8 @@ func (i *IPAcl) SaveToFileWithOverwrite(filePath string) error {
 //	}
 //
 //	// 查看更新后的IP列表
-//	fmt.Printf("当前包含 %d 个IP/CIDR\n", len(ipAcl.GetIPRanges()))
-func (a *IPAcl) AddFromFile(filePath string) error {
+//	fmt.Printf("当前包含 %d 个IP/CIDR\n", len(ipACL.GetIPRanges()))
+func (a *IPACL) AddFromFile(filePath string) error {
 	// 从文件读取IP列表
 	ipRanges, err := config.ReadIPList(filePath)
 	if err != nil {

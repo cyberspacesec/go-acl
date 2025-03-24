@@ -34,7 +34,7 @@ type IPRange struct {
 	IPNet    *net.IPNet // 网络范围
 }
 
-// IPAcl 实现了IP访问控制列表
+// IPACL 实现了IP访问控制列表
 //
 // 支持黑名单和白名单两种模式，可以控制单个IP和CIDR网段。
 // 支持IPv4和IPv6地址，以及预定义的IP集合（如私有网络、云元数据等）。
@@ -42,13 +42,13 @@ type IPRange struct {
 // 用法示例:
 //
 //	// 创建一个IP黑名单
-//	blacklist, err := ip.NewIPAcl(
+//	blacklist, err := ip.NewIPACL(
 //	    []string{"192.168.1.0/24", "10.0.0.1"},
 //	    types.Blacklist
 //	)
 //
 //	// 创建一个IP白名单
-//	whitelist, err := ip.NewIPAcl(
+//	whitelist, err := ip.NewIPACL(
 //	    []string{"8.8.8.8", "1.1.1.1"},
 //	    types.Whitelist
 //	)
@@ -56,12 +56,12 @@ type IPRange struct {
 //	// 检查IP访问权限
 //	perm, err := blacklist.Check("192.168.1.5") // 返回 types.Denied
 //	perm, err := whitelist.Check("8.8.8.8")     // 返回 types.Allowed
-type IPAcl struct {
+type IPACL struct {
 	ranges   []IPRange
 	listType types.ListType
 }
 
-// NewIPAcl 创建一个新的IP访问控制列表
+// NewIPACL 创建一个新的IP访问控制列表
 //
 // 参数:
 //   - ipRanges: 要控制的IP或CIDR列表
@@ -70,7 +70,7 @@ type IPAcl struct {
 //     可用值: types.Blacklist（黑名单）或 types.Whitelist（白名单）
 //
 // 返回:
-//   - *IPAcl: 创建的IP访问控制列表，成功时非nil
+//   - *IPACL: 创建的IP访问控制列表，成功时非nil
 //   - error: 可能的错误:
 //   - ErrInvalidIP: 提供了无效的IP地址格式
 //   - ErrInvalidCIDR: 提供了无效的CIDR格式
@@ -81,7 +81,7 @@ type IPAcl struct {
 // 示例:
 //
 //	// 创建IP黑名单
-//	blacklist, err := ip.NewIPAcl(
+//	blacklist, err := ip.NewIPACL(
 //	    []string{
 //	        "192.168.1.1",    // 单个IPv4地址
 //	        "10.0.0.0/8",     // IPv4 CIDR
@@ -95,12 +95,12 @@ type IPAcl struct {
 //	}
 //
 //	// 创建IP白名单
-//	whitelist, err := ip.NewIPAcl(
+//	whitelist, err := ip.NewIPACL(
 //	    []string{"8.8.8.8", "1.1.1.1"},
 //	    types.Whitelist
 //	)
-func NewIPAcl(ipRanges []string, listType types.ListType) (*IPAcl, error) {
-	acl := &IPAcl{
+func NewIPACL(ipRanges []string, listType types.ListType) (*IPACL, error) {
+	acl := &IPACL{
 		listType: listType,
 	}
 
@@ -144,7 +144,7 @@ func NewIPAcl(ipRanges []string, listType types.ListType) (*IPAcl, error) {
 // 示例:
 //
 //	// 创建IP黑名单
-//	acl, _ := ip.NewIPAcl([]string{"192.168.1.1"}, types.Blacklist)
+//	acl, _ := ip.NewIPACL([]string{"192.168.1.1"}, types.Blacklist)
 //
 //	// 添加单个IP
 //	err := acl.Add("10.0.0.1")
@@ -157,7 +157,7 @@ func NewIPAcl(ipRanges []string, listType types.ListType) (*IPAcl, error) {
 //	if err != nil {
 //	    log.Printf("添加多个IP失败: %v", err)
 //	}
-func (a *IPAcl) Add(ipRanges ...string) error {
+func (a *IPACL) Add(ipRanges ...string) error {
 	// 如果没有输入IP，直接返回
 	if len(ipRanges) == 0 {
 		return nil
@@ -210,7 +210,7 @@ func (a *IPAcl) Add(ipRanges ...string) error {
 // 示例:
 //
 //	// 创建包含多个IP的黑名单
-//	acl, _ := ip.NewIPAcl(
+//	acl, _ := ip.NewIPACL(
 //	    []string{"192.168.1.1", "10.0.0.0/8", "8.8.8.8"},
 //	    types.Blacklist
 //	)
@@ -232,7 +232,7 @@ func (a *IPAcl) Add(ipRanges ...string) error {
 //	if errors.Is(err, ip.ErrIPNotFound) {
 //	    log.Println("IP不在列表中")
 //	}
-func (a *IPAcl) Remove(ipRanges ...string) error {
+func (a *IPACL) Remove(ipRanges ...string) error {
 	if len(ipRanges) == 0 || len(a.ranges) == 0 {
 		return ErrIPNotFound
 	}
@@ -268,7 +268,7 @@ func (a *IPAcl) Remove(ipRanges ...string) error {
 		}
 	}
 
-	// 更新IPAcl使用新的范围
+	// 更新IPACL使用新的范围
 	a.ranges = newRanges
 	return nil
 }
@@ -293,7 +293,7 @@ func (a *IPAcl) Remove(ipRanges ...string) error {
 // 示例:
 //
 //	// 创建IP黑名单
-//	blacklist, _ := ip.NewIPAcl(
+//	blacklist, _ := ip.NewIPACL(
 //	    []string{"192.168.1.0/24", "10.0.0.0/8"},
 //	    types.Blacklist
 //	)
@@ -309,7 +309,7 @@ func (a *IPAcl) Remove(ipRanges ...string) error {
 //	}
 //
 //	// 创建IP白名单
-//	whitelist, _ := ip.NewIPAcl(
+//	whitelist, _ := ip.NewIPACL(
 //	    []string{"8.8.8.8", "1.1.1.1"},
 //	    types.Whitelist
 //	)
@@ -323,7 +323,7 @@ func (a *IPAcl) Remove(ipRanges ...string) error {
 //	} else {
 //	    log.Println("IP不在白名单中，拒绝访问")
 //	}
-func (a *IPAcl) Check(ip string) (types.Permission, error) {
+func (a *IPACL) Check(ip string) (types.Permission, error) {
 	// 解析IP地址
 	parsedIP := net.ParseIP(strings.TrimSpace(ip))
 	if parsedIP == nil {
@@ -358,7 +358,7 @@ func (a *IPAcl) Check(ip string) (types.Permission, error) {
 // 示例:
 //
 //	// 获取所有IP/CIDR
-//	acl, _ := ip.NewIPAcl(
+//	acl, _ := ip.NewIPACL(
 //	    []string{"192.168.1.1", "10.0.0.0/8"},
 //	    types.Blacklist
 //	)
@@ -368,7 +368,7 @@ func (a *IPAcl) Check(ip string) (types.Permission, error) {
 //	for i, ipRange := range ipRanges {
 //	    fmt.Printf("%d. %s\n", i+1, ipRange)
 //	}
-func (a *IPAcl) GetIPRanges() []string {
+func (a *IPACL) GetIPRanges() []string {
 	ipRanges := make([]string, len(a.ranges))
 	for i, ipRange := range a.ranges {
 		ipRanges[i] = ipRange.Original
@@ -386,7 +386,7 @@ func (a *IPAcl) GetIPRanges() []string {
 // 示例:
 //
 //	// 获取列表类型
-//	acl, _ := ip.NewIPAcl([]string{"192.168.1.1"}, types.Blacklist)
+//	acl, _ := ip.NewIPACL([]string{"192.168.1.1"}, types.Blacklist)
 //	listType := acl.GetListType()
 //
 //	if listType == types.Blacklist {
@@ -394,7 +394,7 @@ func (a *IPAcl) GetIPRanges() []string {
 //	} else {
 //	    fmt.Println("这是一个IP白名单")
 //	}
-func (a *IPAcl) GetListType() types.ListType {
+func (a *IPACL) GetListType() types.ListType {
 	return a.listType
 }
 
@@ -419,7 +419,7 @@ func (a *IPAcl) GetListType() types.ListType {
 // 示例:
 //
 //	// 创建IP黑名单，然后添加私有网络范围（阻止内网访问）
-//	blacklist, _ := ip.NewIPAcl([]string{}, types.Blacklist)
+//	blacklist, _ := ip.NewIPACL([]string{}, types.Blacklist)
 //	err := blacklist.AddPredefinedSet(ip.PrivateNetworks, false)
 //	if err != nil {
 //	    log.Printf("添加预定义集合失败: %v", err)
@@ -431,9 +431,9 @@ func (a *IPAcl) GetListType() types.ListType {
 //	fmt.Printf("黑名单现在包含 %d 个IP范围\n", len(ranges))
 //
 //	// 创建IP白名单，然后添加公共DNS服务器（允许访问公共DNS）
-//	whitelist, _ := ip.NewIPAcl([]string{}, types.Whitelist)
+//	whitelist, _ := ip.NewIPACL([]string{}, types.Whitelist)
 //	err = whitelist.AddPredefinedSet(ip.PublicDNS, true)
-func (a *IPAcl) AddPredefinedSet(setName PredefinedSet, allowSet bool) error {
+func (a *IPACL) AddPredefinedSet(setName PredefinedSet, allowSet bool) error {
 	// 获取预定义集合的IP范围
 	ipRanges, err := getPredefinedSet(setName)
 	if err != nil {
@@ -457,7 +457,7 @@ func (a *IPAcl) AddPredefinedSet(setName PredefinedSet, allowSet bool) error {
 //   - bool: 如果IP匹配列表中的任何IP或CIDR范围，返回true
 //
 // 这是一个内部辅助方法，用于检查IP是否在控制列表的任何范围内。
-func (a *IPAcl) matchIP(ip net.IP) bool {
+func (a *IPACL) matchIP(ip net.IP) bool {
 	for _, ipRange := range a.ranges {
 		// 对于单个IP地址的精确匹配
 		if ipRange.IP != nil && ipRange.IPNet == nil && ipRange.IP.Equal(ip) {

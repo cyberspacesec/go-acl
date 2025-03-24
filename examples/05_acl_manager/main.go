@@ -44,7 +44,7 @@ func example1(tmpDir string) *acl.Manager {
 		"malicious-domain.org", // 阻止该域名
 		"ads.example.com",      // 阻止该域名
 	}
-	manager.SetDomainAcl(domainBlacklist, types.Blacklist, true) // 包含子域名
+	manager.SetDomainACL(domainBlacklist, types.Blacklist, true) // 包含子域名
 	fmt.Println("已配置域名黑名单，阻止恶意域名及其子域名")
 
 	// 2. 配置IP ACL（白名单模式）
@@ -68,7 +68,7 @@ func example1(tmpDir string) *acl.Manager {
 	}
 
 	// 从文件加载IP白名单
-	err = manager.SetIPAclFromFile(whitelistPath, types.Whitelist)
+	err = manager.SetIPACLFromFile(whitelistPath, types.Whitelist)
 	if err != nil {
 		fmt.Printf("加载IP白名单失败: %v\n", err)
 		return manager
@@ -81,7 +81,7 @@ func example1(tmpDir string) *acl.Manager {
 	ipRanges := manager.GetIPRanges()
 
 	// 创建一个新的IP ACL，包含原有IP和公共DNS服务器
-	ipAcl, err := ip.NewIPAclWithDefaults(
+	ipAcl, err := ip.NewIPACLWithDefaults(
 		ipRanges,
 		types.Whitelist,
 		[]ip.PredefinedSet{ip.PublicDNS},
@@ -91,7 +91,7 @@ func example1(tmpDir string) *acl.Manager {
 		fmt.Printf("添加公共DNS服务器失败: %v\n", err)
 	} else {
 		// 更新manager的IP ACL
-		err = manager.SetIPAcl(ipAcl.GetIPRanges(), types.Whitelist)
+		err = manager.SetIPACL(ipAcl.GetIPRanges(), types.Whitelist)
 		if err != nil {
 			fmt.Printf("更新IP ACL失败: %v\n", err)
 		} else {
@@ -304,8 +304,8 @@ func example3(manager *acl.Manager, tmpDir string) {
 
 	// 4. 使用预定义集合创建新的IP黑名单
 	fmt.Println("\n使用预定义集合创建新的安全ACL:")
-	// 使用Manager的SetIPAclWithDefaults方法
-	err = manager.SetIPAclWithDefaults(
+	// 使用Manager的SetIPACLWithDefaults方法
+	err = manager.SetIPACLWithDefaults(
 		[]string{},
 		types.Blacklist,
 		[]ip.PredefinedSet{
@@ -323,7 +323,7 @@ func example3(manager *acl.Manager, tmpDir string) {
 
 	// 保存到文件
 	blacklistPath := filepath.Join(tmpDir, "ip_blacklist.txt")
-	err = manager.SaveIPAclToFile(blacklistPath, true)
+	err = manager.SaveIPACLToFile(blacklistPath, true)
 	if err != nil {
 		fmt.Printf("保存IP黑名单失败: %v\n", err)
 	} else {
@@ -355,7 +355,7 @@ func displayManagerConfig(manager *acl.Manager) {
 	fmt.Println("\n当前ACL管理器配置:")
 
 	// 显示域名ACL信息
-	domainListType, err := manager.GetDomainAclType()
+	domainListType, err := manager.GetDomainACLType()
 	if err != nil {
 		if errors.Is(err, types.ErrNoAcl) {
 			fmt.Println("  域名ACL: 未配置")
@@ -387,7 +387,7 @@ func displayManagerConfig(manager *acl.Manager) {
 	}
 
 	// 显示IP ACL信息
-	ipAclType, err := manager.GetIPAclType()
+	ipAclType, err := manager.GetIPACLType()
 	if err != nil {
 		if errors.Is(err, types.ErrNoAcl) {
 			fmt.Println("  IP ACL: 未配置")

@@ -14,7 +14,7 @@ func main() {
 	// 示例1: 创建IP黑名单
 	fmt.Println("\n示例1: 创建IP黑名单")
 	// 创建一个IP黑名单，包含IPv4和CIDR
-	blacklist, err := ip.NewIPAcl(
+	blacklist, err := ip.NewIPACL(
 		[]string{
 			"192.168.1.100", // 单个IPv4地址
 			"10.0.0.0/8",    // IPv4 CIDR范围
@@ -39,7 +39,7 @@ func main() {
 	// 示例2: 创建IP白名单
 	fmt.Println("\n示例2: 创建IP白名单")
 	// 创建一个IP白名单，只允许特定的IP访问
-	whitelist, err := ip.NewIPAcl(
+	whitelist, err := ip.NewIPACL(
 		[]string{
 			"8.8.8.8",        // Google DNS
 			"1.1.1.1",        // Cloudflare DNS
@@ -64,7 +64,7 @@ func main() {
 	// 示例3: 动态管理IP规则
 	fmt.Println("\n示例3: 动态管理IP规则")
 	// 创建一个空的IP黑名单
-	dynamicAcl, err := ip.NewIPAcl([]string{}, types.Blacklist)
+	dynamicAcl, err := ip.NewIPACL([]string{}, types.Blacklist)
 	if err != nil {
 		log.Fatalf("创建空IP黑名单失败: %v", err)
 	}
@@ -106,7 +106,7 @@ func main() {
 	// 示例4: IPv6支持
 	fmt.Println("\n示例4: IPv6支持")
 	// 创建一个同时包含IPv4和IPv6的ACL
-	ipv6Acl, err := ip.NewIPAcl(
+	ipv6Acl, err := ip.NewIPACL(
 		[]string{
 			"192.168.1.0/24",  // IPv4 CIDR
 			"2001:db8::/32",   // IPv6 CIDR
@@ -131,14 +131,14 @@ func main() {
 }
 
 // 辅助函数：检查一系列IP
-func checkIPs(acl *ip.IPAcl, ips []string) {
+func checkIPs(acl *ip.IPACL, ips []string) {
 	for _, ip := range ips {
 		checkIP(acl, ip)
 	}
 }
 
 // 辅助函数：检查单个IP
-func checkIP(acl *ip.IPAcl, ipAddr string) {
+func checkIP(acl *ip.IPACL, ipAddr string) {
 	permission, err := acl.Check(ipAddr)
 	if err != nil {
 		fmt.Printf("  IP %-18s -> 错误: %v\n", ipAddr, err)
