@@ -241,7 +241,10 @@ func TestAddIPFromFile(t *testing.T) {
 	}
 
 	// 测试不存在的文件
-	manager.SetIPACL(initialIPs, types.Blacklist)
+	err = manager.SetIPACL(initialIPs, types.Blacklist)
+	if err != nil {
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
+	}
 	err = manager.AddIPFromFile("/nonexistent/file.txt")
 	if err == nil {
 		t.Error("AddIPFromFile() 对于不存在的文件应返回错误")
@@ -372,7 +375,10 @@ func TestAddPredefinedIPSet(t *testing.T) {
 	}
 
 	// 测试无效预定义集合
-	manager.SetIPACL(initialIPs, types.Blacklist)
+	err = manager.SetIPACL(initialIPs, types.Blacklist)
+	if err != nil {
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
+	}
 	err = manager.AddPredefinedIPSet(ip.PredefinedSet("invalid_set"), false)
 	if err == nil {
 		t.Error("AddPredefinedIPSet() 对于无效预定义集合应返回错误")
