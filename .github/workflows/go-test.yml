@@ -1,0 +1,60 @@
+name: Go Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: 测试
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        go-version: [1.18.x, 1.19.x, 1.20.x, 1.21.x]
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: 安装依赖
+        run: go mod download
+
+      - name: 运行单元测试
+        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: 生成覆盖率徽章
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: unittests
+          fail_ci_if_error: false
+          verbose: true
+
+  lint:
+    name: 代码检查
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+      
+      - name: 设置 Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21.x
+          cache: true
+      
+      - name: 安装 golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      
+      - name: 运行 golangci-lint
+        run: golangci-lint run --timeout=5m 

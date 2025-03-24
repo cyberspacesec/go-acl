@@ -4,6 +4,7 @@
   <img src="https://img.shields.io/badge/Go-1.18+-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go版本" />
   <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="许可证" />
   <img src="https://img.shields.io/badge/Coverage-96.7%25-success?style=for-the-badge" alt="测试覆盖率" />
+  <img src="https://img.shields.io/github/workflow/status/cyberspacesec/go-acl/Go%20Tests?style=for-the-badge&logo=github&label=tests" alt="测试状态" />
 </p>
 
 <p align="center">

@@ -1,0 +1,40 @@
+linters:
+  # 启用以下代码检查器
+  enable:
+    - errcheck    # 检查未处理的错误
+    - gosimple    # 简化代码
+    - govet       # 检查Go代码中的常见错误
+    - ineffassign # 检测未使用的赋值
+    - staticcheck # 静态分析工具
+    - typecheck   # 类型检查
+    - unused      # 检查未使用的代码
+    - gofmt       # 代码格式化检查
+    - goimports   # 检查imports格式
+    - misspell    # 检查常见拼写错误
+    - stylecheck  # 检查代码风格
+
+issues:
+  # 排除一些常见的误报
+  exclude-rules:
+    - linters:
+        - staticcheck
+      text: "SA1019:"  # 忽略已弃用API使用的警告
+    - linters:
+        - stylecheck
+      text: "ST1000:"  # 忽略包注释格式警告
+
+  # 只显示新问题
+  new: true
+  
+  # 排序问题，以便最重要的问题排在前面
+  fix: true
+
+run:
+  # 超时设置
+  timeout: 5m
+  
+  # 默认并发设置
+  concurrency: 4
+  
+  # 包含测试文件
+  tests: true 
