@@ -1,111 +1,179 @@
-# go-acl 示例程序
+# 🧪 go-acl 示例指南
 
-本目录包含了 go-acl 库的各种使用示例，从基础功能到复杂应用场景，帮助您快速了解和掌握 go-acl 的使用方法。
+<p align="center">
+  <img src="https://img.shields.io/badge/Examples-6-brightgreen?style=for-the-badge" alt="示例数量" />
+  <img src="https://img.shields.io/badge/Go-1.18+-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go版本" />
+  <img src="https://img.shields.io/badge/Difficulty-Beginner_to_Advanced-blue?style=for-the-badge" alt="难度" />
+</p>
 
-## 示例列表
+<p align="center">
+  <b>从基础到高级的完整示例集</b><br>
+  <sub>学习如何在您的应用中实现强大的访问控制</sub>
+</p>
 
-### 1. 域名访问控制 ([01_domain_acl](./01_domain_acl/))
+---
 
-演示域名访问控制列表(Domain ACL)的基本用法，包括：
+## 📚 示例概览
 
-- 黑名单模式：仅阻止特定域名
-- 白名单模式：仅允许特定域名 
-- 子域名匹配：是否检查子域名
-- 动态管理规则：添加和移除域名
+本目录包含了一系列精心设计的示例，展示了如何在各种场景中使用 go-acl 库的丰富功能。每个示例都包含详细的注释和预期输出，帮助您快速理解和掌握该库的用法。
+
+示例按照复杂度递增的顺序排列，建议按顺序学习：
+
+## 🔢 示例列表
+
+<table>
+  <tr>
+    <th width="5%">序号</th>
+    <th width="20%">名称</th>
+    <th width="45%">描述</th>
+    <th width="30%">核心概念</th>
+  </tr>
+  <tr>
+    <td align="center"><b>01</b></td>
+    <td><a href="./01_domain_acl/">域名访问控制</a></td>
+    <td>演示基本的域名过滤功能，包括黑白名单和子域名匹配。</td>
+    <td>
+      <code>DomainAcl</code><br>
+      <code>黑/白名单模式</code><br>
+      <code>子域名匹配</code>
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><b>02</b></td>
+    <td><a href="./02_ip_acl/">IP访问控制</a></td>
+    <td>展示IP和CIDR过滤，包括IPv4和IPv6支持。</td>
+    <td>
+      <code>IPAcl</code><br>
+      <code>CIDR格式</code><br>
+      <code>IPv6支持</code>
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><b>03</b></td>
+    <td><a href="./03_file_operations/">文件操作</a></td>
+    <td>演示如何从文件加载规则和保存规则到文件。</td>
+    <td>
+      <code>ReadIPList</code><br>
+      <code>SaveIPList</code><br>
+      <code>文件格式</code>
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><b>04</b></td>
+    <td><a href="./04_predefined_sets/">预定义IP集合</a></td>
+    <td>使用内置的IP集合快速构建安全规则。</td>
+    <td>
+      <code>PredefinedSet</code><br>
+      <code>安全增强</code><br>
+      <code>SSRF防护</code>
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><b>05</b></td>
+    <td><a href="./05_acl_manager/">ACL管理器</a></td>
+    <td>使用ACL管理器同时控制域名和IP访问。</td>
+    <td>
+      <code>Manager</code><br>
+      <code>URL解析</code><br>
+      <code>规则管理</code>
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><b>06</b></td>
+    <td><a href="./06_complete_example/">完整应用示例</a></td>
+    <td>一个完整的Web应用访问控制系统实现。</td>
+    <td>
+      <code>实际应用</code><br>
+      <code>日志记录</code><br>
+      <code>安全模式切换</code>
+    </td>
+  </tr>
+</table>
+
+## 🚀 快速开始
+
+### 运行单个示例
+
+每个示例都可以独立运行。导航到相应目录并执行 `go run main.go` 命令：
 
 ```bash
 cd 01_domain_acl
 go run main.go
 ```
 
-### 2. IP访问控制 ([02_ip_acl](./02_ip_acl/))
+### 运行所有示例
 
-演示IP访问控制列表(IP ACL)的基本用法，包括：
-
-- IP黑名单：阻止特定IP和CIDR范围
-- IP白名单：仅允许特定IP和CIDR范围
-- 动态管理IP规则
-- IPv6支持
+使用以下脚本可以依次运行所有示例：
 
 ```bash
-cd 02_ip_acl
-go run main.go
-```
-
-### 3. 文件操作 ([03_file_operations](./03_file_operations/))
-
-演示与文件相关的操作，包括：
-
-- 保存IP列表到文件
-- 从文件加载IP列表
-- 向已有ACL添加来自文件的内容
-- 文件格式和注释处理
-
-```bash
-cd 03_file_operations
-go run main.go
-```
-
-### 4. 预定义IP集合 ([04_predefined_sets](./04_predefined_sets/))
-
-演示如何使用预定义的IP集合，包括：
-
-- 私有网络、回环网络等常见网络
-- 常见云服务商的元数据IP
-- 公共DNS服务器
-- Docker默认网络
-- 组合使用多个预定义集合
-
-```bash
-cd 04_predefined_sets
-go run main.go
-```
-
-### 5. ACL管理器 ([05_acl_manager](./05_acl_manager/))
-
-演示高级ACL管理器的用法，包括：
-
-- 同时管理域名和IP访问控制
-- 使用管理器检查访问权限
-- 动态更新规则
-- 获取和设置ACL类型
-
-```bash
-cd 05_acl_manager
-go run main.go
-```
-
-### 6. 完整应用示例 ([06_complete_example](./06_complete_example/))
-
-展示一个完整的Web应用访问控制系统，演示如何在实际场景中使用 go-acl，包括：
-
-- 初始化访问控制系统（域名黑名单、IP黑名单）
-- 处理Web请求时的访问控制
-- 动态更新访问规则
-- 切换到高安全模式（域名白名单、IP白名单）
-- 访问日志记录和统计
-
-```bash
-cd 06_complete_example
-go run main.go
-```
-
-## 运行所有示例
-
-如果您想依次运行所有示例，可以使用以下命令：
-
-```bash
+#!/bin/bash
 for dir in */; do
   if [ -f "${dir}main.go" ]; then
-    echo "===== 运行 ${dir} ====="
+    echo -e "\n\n====================[ 运行 ${dir} ]====================\n"
     (cd "$dir" && go run main.go)
-    echo
   fi
 done
 ```
 
-## 注意事项
+## 📝 示例结构
 
-- 所有示例代码都包含详细的注释，解释每一步的操作和目的
-- 示例程序的输出结果已在代码末尾以注释形式提供，便于您对照结果
-- 部分示例会创建临时文件，这些文件会在程序结束时自动清理 
+每个示例都遵循一致的结构：
+
+```
+examples/XX_name/
+  ├── main.go      # 主示例代码
+  └── README.md    # (可选) 详细说明
+```
+
+每个示例代码文件的结构：
+
+1. **导入必要的包**
+2. **多个示例函数** - 每个展示一个特定功能
+3. **辅助函数** - 帮助简化示例代码
+4. **预期输出注释** - 展示运行结果
+
+## 🔍 核心场景
+
+go-acl库适用于多种安全场景：
+
+- **Web应用防护** - 阻止恶意域名和IP
+- **API安全** - 限制API调用者
+- **防止SSRF攻击** - 阻止对内部网络的访问
+- **数据泄露防护** - 控制敏感数据的外发
+- **合规要求** - 满足网络隔离规定
+
+## 🎓 进阶学习
+
+完成这些示例后，您可以：
+
+1. 查看 [pkg 目录](../pkg/) 了解源码实现
+2. 阅读 [测试文件](../pkg/domain/domain_test.go) 了解更多用法
+3. 参考 [文档](https://pkg.go.dev/github.com/cyberspacesec/go-acl) 获取完整API细节
+
+## 📊 示例复杂度
+
+<table>
+  <tr>
+    <td><img src="https://progress-bar.dev/20?title=入门&width=100" alt="入门示例" /></td>
+    <td>01-02: 基础概念和简单用法</td>
+  </tr>
+  <tr>
+    <td><img src="https://progress-bar.dev/50?title=中级&width=100" alt="中级示例" /></td>
+    <td>03-04: 文件操作和预定义集合</td>
+  </tr>
+  <tr>
+    <td><img src="https://progress-bar.dev/80?title=高级&width=100" alt="高级示例" /></td>
+    <td>05: 管理器和综合功能</td>
+  </tr>
+  <tr>
+    <td><img src="https://progress-bar.dev/100?title=实战&width=100" alt="实战示例" /></td>
+    <td>06: 完整应用集成</td>
+  </tr>
+</table>
+
+---
+
+<p align="center">
+  <sub>所有示例代码均在MIT许可证下提供</sub><br>
+  <sub>有问题或建议？请在GitHub上<a href="https://github.com/cyberspacesec/go-acl/issues">提交Issue</a></sub>
+</p> 
