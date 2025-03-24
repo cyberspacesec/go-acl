@@ -29,26 +29,12 @@ func NewDomainAcl(domains []string, listType types.ListType, includeSubdomains b
 	// 确保所有域名格式正确并移除前导的 "www." 和 "."
 	normalizedDomains := make([]string, 0, len(domains))
 	for _, domain := range domains {
-		// 移除可能的 http:// 或 https:// 前缀
-		if strings.HasPrefix(domain, "http://") {
-			domain = domain[7:]
-		} else if strings.HasPrefix(domain, "https://") {
-			domain = domain[8:]
-		}
-
-		// 移除可能的路径部分
-		if idx := strings.Index(domain, "/"); idx != -1 {
-			domain = domain[:idx]
-		}
-
-		// 移除 www. 前缀
-		if strings.HasPrefix(domain, "www.") {
-			domain = domain[4:]
-		}
+		// 使用通用的域名规范化函数处理域名
+		normalizedDomain := normalizeDomain(domain)
 
 		// 忽略空域名
-		if domain != "" {
-			normalizedDomains = append(normalizedDomains, strings.ToLower(domain))
+		if normalizedDomain != "" {
+			normalizedDomains = append(normalizedDomains, normalizedDomain)
 		}
 	}
 
@@ -182,10 +168,13 @@ func (d *DomainAcl) matchDomain(domain string) bool {
 
 // normalizeDomain 规范化域名，移除协议前缀、www前缀和路径等
 func normalizeDomain(domain string) string {
-	// 移除可能的 http:// 或 https:// 前缀
-	if strings.HasPrefix(domain, "http://") {
+	// 移除可能的 http:// 或 https:// 前缀，处理大小写
+	domain = strings.TrimSpace(domain)
+	lowerDomain := strings.ToLower(domain)
+
+	if strings.HasPrefix(lowerDomain, "http://") {
 		domain = domain[7:]
-	} else if strings.HasPrefix(domain, "https://") {
+	} else if strings.HasPrefix(lowerDomain, "https://") {
 		domain = domain[8:]
 	}
 
@@ -194,8 +183,9 @@ func normalizeDomain(domain string) string {
 		domain = domain[:idx]
 	}
 
-	// 移除 www. 前缀
-	if strings.HasPrefix(domain, "www.") {
+	// 移除 www. 前缀，处理大小写
+	lowerDomain = strings.ToLower(domain)
+	if strings.HasPrefix(lowerDomain, "www.") {
 		domain = domain[4:]
 	}
 
