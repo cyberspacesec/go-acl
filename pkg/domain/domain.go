@@ -166,25 +166,95 @@ func (d *DomainAcl) matchDomain(domain string) bool {
 	return false
 }
 
-// normalizeDomain 规范化域名，移除协议前缀、www前缀和路径等
+// normalizeDomain 规范化域名，移除协议前缀、www前缀、用户名密码、端口号、路径、查询参数和锚点等
 func normalizeDomain(domain string) string {
-	// 移除可能的 http:// 或 https:// 前缀，处理大小写
+	// 移除空格并转换为小写，便于后续处理
 	domain = strings.TrimSpace(domain)
 	lowerDomain := strings.ToLower(domain)
 
-	if strings.HasPrefix(lowerDomain, "http://") {
-		domain = domain[7:]
-	} else if strings.HasPrefix(lowerDomain, "https://") {
-		domain = domain[8:]
+	// 处理以双斜杠开头但无协议的URL (//example.com/path)
+	if strings.HasPrefix(lowerDomain, "//") {
+		domain = domain[2:]
+		lowerDomain = strings.ToLower(domain)
 	}
 
-	// 移除可能的路径部分
+	// 移除可能的 http:// 或 https:// 前缀，处理大小写
+	if strings.HasPrefix(lowerDomain, "http://") {
+		domain = domain[7:]
+		lowerDomain = strings.ToLower(domain)
+	} else if strings.HasPrefix(lowerDomain, "https://") {
+		domain = domain[8:]
+		lowerDomain = strings.ToLower(domain)
+	}
+
+	// 移除用户名和密码部分 (user:password@example.com)
+	if idx := strings.Index(domain, "@"); idx != -1 {
+		domain = domain[idx+1:]
+		lowerDomain = strings.ToLower(domain)
+	}
+
+	// 移除可能的端口号部分 (example.com:8080)
+	if idx := strings.LastIndex(domain, ":"); idx != -1 {
+		// 确保这不是IPv6地址
+		if !strings.Contains(domain[0:idx], "[") {
+			// 检查冒号后面是否全部是数字（端口号）
+			isPort := true
+			portPart := domain[idx+1:]
+
+			// 检查下一个分隔符（如果有的话）
+			slashIndex := strings.Index(portPart, "/")
+			questionIndex := strings.Index(portPart, "?")
+			hashIndex := strings.Index(portPart, "#")
+
+			// 找到最近的分隔符
+			endIndex := len(portPart)
+			if slashIndex != -1 && slashIndex < endIndex {
+				endIndex = slashIndex
+			}
+			if questionIndex != -1 && questionIndex < endIndex {
+				endIndex = questionIndex
+			}
+			if hashIndex != -1 && hashIndex < endIndex {
+				endIndex = hashIndex
+			}
+
+			// 截取实际的端口部分
+			portPart = portPart[:endIndex]
+
+			// 检查是否全为数字
+			for _, c := range portPart {
+				if c < '0' || c > '9' {
+					isPort = false
+					break
+				}
+			}
+
+			if isPort && portPart != "" {
+				domain = domain[0:idx]
+				lowerDomain = strings.ToLower(domain)
+			}
+		}
+	}
+
+	// 移除可能的路径部分 (example.com/path)
 	if idx := strings.Index(domain, "/"); idx != -1 {
-		domain = domain[:idx]
+		domain = domain[0:idx]
+		lowerDomain = strings.ToLower(domain)
+	}
+
+	// 移除可能的查询参数 (example.com?param=value)
+	if idx := strings.Index(domain, "?"); idx != -1 {
+		domain = domain[0:idx]
+		lowerDomain = strings.ToLower(domain)
+	}
+
+	// 移除可能的锚点 (example.com#section)
+	if idx := strings.Index(domain, "#"); idx != -1 {
+		domain = domain[0:idx]
+		lowerDomain = strings.ToLower(domain)
 	}
 
 	// 移除 www. 前缀，处理大小写
-	lowerDomain = strings.ToLower(domain)
 	if strings.HasPrefix(lowerDomain, "www.") {
 		domain = domain[4:]
 	}

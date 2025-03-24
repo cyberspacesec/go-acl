@@ -726,3 +726,350 @@ func TestDebugNormalizeDomain(t *testing.T) {
 		t.Logf("Input: %s, Normalized: %s", input, result)
 	}
 }
+
+// TestInternationalizedDomainNames 测试国际化域名(IDN)处理
+func TestInternationalizedDomainNames(t *testing.T) {
+	tests := []struct {
+		name       string
+		domain     string
+		normalized string
+	}{
+		{
+			name:       "普通IDN域名",
+			domain:     "xn--80akhbyknj4f.xn--p1ai", // пример.рф的Punycode编码
+			normalized: "xn--80akhbyknj4f.xn--p1ai",
+		},
+		{
+			name:       "带HTTP的IDN域名",
+			domain:     "http://xn--80akhbyknj4f.xn--p1ai",
+			normalized: "xn--80akhbyknj4f.xn--p1ai",
+		},
+		{
+			name:       "带www的IDN域名",
+			domain:     "www.xn--80akhbyknj4f.xn--p1ai",
+			normalized: "xn--80akhbyknj4f.xn--p1ai",
+		},
+		{
+			name:       "带路径的IDN域名",
+			domain:     "xn--80akhbyknj4f.xn--p1ai/path",
+			normalized: "xn--80akhbyknj4f.xn--p1ai",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeDomain(tt.domain)
+			if got != tt.normalized {
+				t.Errorf("normalizeDomain() = %v, 期望 %v", got, tt.normalized)
+			}
+		})
+	}
+}
+
+// TestDomainsWithPort 测试带端口号的域名处理
+func TestDomainsWithPort(t *testing.T) {
+	tests := []struct {
+		name       string
+		domain     string
+		normalized string
+	}{
+		{
+			name:       "普通带端口域名",
+			domain:     "example.com:8080",
+			normalized: "example.com",
+		},
+		{
+			name:       "带HTTP和端口的域名",
+			domain:     "http://example.com:8080",
+			normalized: "example.com",
+		},
+		{
+			name:       "带HTTPS和端口的域名",
+			domain:     "https://example.com:443",
+			normalized: "example.com",
+		},
+		{
+			name:       "带www和端口的域名",
+			domain:     "www.example.com:8080",
+			normalized: "example.com",
+		},
+		{
+			name:       "带路径和端口的域名",
+			domain:     "example.com:8080/path",
+			normalized: "example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeDomain(tt.domain)
+			if got != tt.normalized {
+				t.Errorf("normalizeDomain() = %v, 期望 %v", got, tt.normalized)
+			}
+		})
+	}
+}
+
+// TestDomainsWithCredentials 测试带用户名和密码的URL处理
+func TestDomainsWithCredentials(t *testing.T) {
+	tests := []struct {
+		name       string
+		domain     string
+		normalized string
+	}{
+		{
+			name:       "带用户名的URL",
+			domain:     "http://user@example.com",
+			normalized: "example.com",
+		},
+		{
+			name:       "带用户名和密码的URL",
+			domain:     "http://user:password@example.com",
+			normalized: "example.com",
+		},
+		{
+			name:       "HTTPS带用户名和密码的URL",
+			domain:     "https://user:password@example.com",
+			normalized: "example.com",
+		},
+		{
+			name:       "带用户名、密码和端口的URL",
+			domain:     "http://user:password@example.com:8080",
+			normalized: "example.com",
+		},
+		{
+			name:       "带用户名、密码、端口和路径的URL",
+			domain:     "http://user:password@example.com:8080/path",
+			normalized: "example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeDomain(tt.domain)
+			if got != tt.normalized {
+				t.Errorf("normalizeDomain() = %v, 期望 %v", got, tt.normalized)
+			}
+		})
+	}
+}
+
+// TestComplexSubdomainMatching 测试复杂的子域名层级匹配
+func TestComplexSubdomainMatching(t *testing.T) {
+	tests := []struct {
+		name              string
+		domains           []string
+		includeSubdomains bool
+		domainToMatch     string
+		expected          bool
+	}{
+		{
+			name:              "多层级子域名匹配",
+			domains:           []string{"example.com"},
+			includeSubdomains: true,
+			domainToMatch:     "a.b.c.d.example.com",
+			expected:          true,
+		},
+		{
+			name:              "多层级子域名精确匹配",
+			domains:           []string{"a.b.c.example.com"},
+			includeSubdomains: true,
+			domainToMatch:     "a.b.c.example.com",
+			expected:          true,
+		},
+		{
+			name:              "多层级子域名的子域名匹配",
+			domains:           []string{"a.b.c.example.com"},
+			includeSubdomains: true,
+			domainToMatch:     "x.y.a.b.c.example.com",
+			expected:          true,
+		},
+		{
+			name:              "多层级子域名，禁用子域名匹配",
+			domains:           []string{"a.b.c.example.com"},
+			includeSubdomains: false,
+			domainToMatch:     "x.a.b.c.example.com",
+			expected:          false,
+		},
+		{
+			name:              "相邻域名不匹配",
+			domains:           []string{"abc.example.com"},
+			includeSubdomains: true,
+			domainToMatch:     "def.example.com",
+			expected:          false,
+		},
+		{
+			name:              "相似域名不匹配",
+			domains:           []string{"example.com"},
+			includeSubdomains: true,
+			domainToMatch:     "example.org",
+			expected:          false,
+		},
+		{
+			name:              "只有子域名包含目标域名",
+			domains:           []string{"sub.example.com"},
+			includeSubdomains: false,
+			domainToMatch:     "example.com",
+			expected:          false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			acl := &DomainAcl{
+				domains:           tt.domains,
+				listType:          types.Blacklist, // 列表类型对匹配功能没有影响
+				includeSubdomains: tt.includeSubdomains,
+			}
+
+			got := acl.matchDomain(tt.domainToMatch)
+			if got != tt.expected {
+				t.Errorf("matchDomain() = %v, 期望 %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestEdgeCaseDomains 测试边缘情况域名
+func TestEdgeCaseDomains(t *testing.T) {
+	tests := []struct {
+		name       string
+		domain     string
+		normalized string
+	}{
+		{
+			name:       "极长域名",
+			domain:     "this.is.a.very.very.very.very.very.very.very.very.long.domain.example.com",
+			normalized: "this.is.a.very.very.very.very.very.very.very.very.long.domain.example.com",
+		},
+		{
+			name:       "带查询参数的域名",
+			domain:     "example.com?param1=value1&param2=value2",
+			normalized: "example.com",
+		},
+		{
+			name:       "带锚点的域名",
+			domain:     "example.com#section1",
+			normalized: "example.com",
+		},
+		{
+			name:       "带查询参数和锚点的域名",
+			domain:     "example.com?param=value#section1",
+			normalized: "example.com",
+		},
+		{
+			name:       "带特殊字符的域名",
+			domain:     "exam_ple.com",
+			normalized: "exam_ple.com",
+		},
+		{
+			name:       "单标签域名",
+			domain:     "localhost",
+			normalized: "localhost",
+		},
+		{
+			name:       "带HTTP和查询参数的域名",
+			domain:     "http://example.com?param=value",
+			normalized: "example.com",
+		},
+		{
+			name:       "带双斜杠但无协议的域名",
+			domain:     "//example.com/path",
+			normalized: "example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeDomain(tt.domain)
+			if got != tt.normalized {
+				t.Errorf("normalizeDomain() = %v, 期望 %v", got, tt.normalized)
+			}
+		})
+	}
+}
+
+// TestDomainAcl_CheckEdgeCases 测试Check方法的边缘情况
+func TestDomainAcl_CheckEdgeCases(t *testing.T) {
+	tests := []struct {
+		name              string
+		domains           []string
+		listType          types.ListType
+		includeSubdomains bool
+		domainToCheck     string
+		expectedPerm      types.Permission
+		expectErr         error
+	}{
+		{
+			name:              "特殊字符域名",
+			domains:           []string{"example.com", "test-domain.org"},
+			listType:          types.Blacklist,
+			includeSubdomains: false,
+			domainToCheck:     "test-domain.org",
+			expectedPerm:      types.Denied,
+			expectErr:         nil,
+		},
+		{
+			name:              "包含下划线的域名",
+			domains:           []string{"example.com", "test_domain.org"},
+			listType:          types.Blacklist,
+			includeSubdomains: false,
+			domainToCheck:     "test_domain.org",
+			expectedPerm:      types.Denied,
+			expectErr:         nil,
+		},
+		{
+			name:              "只有一个字符的域名",
+			domains:           []string{"example.com"},
+			listType:          types.Blacklist,
+			includeSubdomains: false,
+			domainToCheck:     "a",
+			expectedPerm:      types.Allowed,
+			expectErr:         nil,
+		},
+		{
+			name:              "只有TLD的域名",
+			domains:           []string{"com", "org", "net"},
+			listType:          types.Blacklist,
+			includeSubdomains: true,
+			domainToCheck:     "example.com",
+			expectedPerm:      types.Denied,
+			expectErr:         nil,
+		},
+		{
+			name:              "带双斜杠但无协议的域名",
+			domains:           []string{"example.com"},
+			listType:          types.Blacklist,
+			includeSubdomains: false,
+			domainToCheck:     "//example.com/path",
+			expectedPerm:      types.Denied,
+			expectErr:         nil,
+		},
+		{
+			name:              "极长路径的域名",
+			domains:           []string{"example.com"},
+			listType:          types.Blacklist,
+			includeSubdomains: false,
+			domainToCheck:     "example.com/this/is/a/very/very/very/very/long/path",
+			expectedPerm:      types.Denied,
+			expectErr:         nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			acl := NewDomainAcl(tt.domains, tt.listType, tt.includeSubdomains)
+			perm, err := acl.Check(tt.domainToCheck)
+
+			// 检查错误
+			if !errors.Is(err, tt.expectErr) {
+				t.Errorf("错误不匹配 = %v, 期望 %v", err, tt.expectErr)
+			}
+
+			// 检查权限
+			if perm != tt.expectedPerm {
+				t.Errorf("权限不匹配 = %v, 期望 %v", perm, tt.expectedPerm)
+			}
+		})
+	}
+}
