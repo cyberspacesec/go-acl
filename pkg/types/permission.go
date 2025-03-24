@@ -1,5 +1,5 @@
-// Package core 提供go-acl库的核心类型、接口和常量
-package core
+// Package types 提供go-acl库的基础类型、接口和常量
+package types
 
 // Permission 表示访问检查的结果
 // 用于表示ACL检查后的决策结果，是允许访问还是拒绝访问

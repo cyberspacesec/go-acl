@@ -1,6 +1,6 @@
-// Package core 提供go-acl库的核心类型、接口和常量
-// 该包是整个访问控制列表(ACL)系统的基础
-package core
+// Package types 提供go-acl库的基础类型、接口和常量
+// 该包是整个访问控制列表(ACL)系统的类型基础
+package types
 
 // ListType 表示访问控制列表的类型：黑名单或白名单
 // 在ACL系统中，列表类型决定了默认的访问策略和规则的解释方式

@@ -1,6 +1,5 @@
-package core
-
-// Package core 提供go-acl库的核心类型、接口和常量
+// Package types 提供go-acl库的基础类型、接口和常量
+package types
 
 // Acl 是所有访问控制列表实现的接口
 // 该接口定义了访问控制列表的核心功能 - 检查访问权限
