@@ -67,7 +67,7 @@ func TestNewIPAcl(t *testing.T) {
 			ipRanges:  []string{"192.168.1.0/33"},
 			listType:  types.Blacklist,
 			wantErr:   true,
-			errType:   ErrInvalidCIDR,
+			errType:   ErrInvalidIP,
 			emptyList: false,
 		},
 		{

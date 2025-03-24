@@ -1,31 +1,51 @@
 package ip
 
-// PredefinedSet 代表预定义的IP地址集合类型
+import "github.com/cyberspacesec/go-acl/pkg/types"
+
+// PredefinedSet 表示预定义IP集合的类型
+//
+// 预定义集合是一组相关的IP地址或CIDR范围，用于简化常见网络组的访问控制。
+// 例如可以轻松地阻止对内网地址、云元数据服务或特殊用途网络的访问。
 type PredefinedSet string
 
+// 预定义IP集合常量，用于参数传递
 const (
-	// PrivateNetworks 代表RFC1918中定义的私有网络地址
+	// PrivateNetworks 包含所有私有网络地址范围
+	// RFC1918定义的私有地址: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+	// 通常用于阻止内网访问，防止SSRF攻击
 	PrivateNetworks PredefinedSet = "private_networks"
 
-	// LoopbackNetworks 代表本地回环地址
+	// LoopbackNetworks 包含本地回环地址范围
+	// 包括 127.0.0.0/8 和 ::1/128
+	// 通常用于阻止对本地服务的访问
 	LoopbackNetworks PredefinedSet = "loopback_networks"
 
-	// LinkLocalNetworks 代表链路本地地址
+	// LinkLocalNetworks 包含链路本地地址范围
+	// 包括 169.254.0.0/16 (IPv4) 和 fe80::/10 (IPv6)
+	// 这些地址用于同一网段内的通信，没有路由器参与
 	LinkLocalNetworks PredefinedSet = "link_local_networks"
 
-	// CloudMetadata 代表各大云服务提供商的元数据服务地址
+	// CloudMetadata 包含各大云服务商的元数据服务地址
+	// 包括AWS, GCP, Azure, DigitalOcean等云平台的元数据IP
+	// 阻止对这些地址的访问可以防止云环境中的SSRF攻击
 	CloudMetadata PredefinedSet = "cloud_metadata"
 
 	// DockerNetworks 代表Docker默认网络
 	DockerNetworks PredefinedSet = "docker_networks"
 
-	// PublicDNS 代表常用的公共DNS服务器地址
+	// PublicDNS 包含常用的公共DNS服务器IP
+	// 包括Google DNS (8.8.8.8, 8.8.4.4), Cloudflare DNS (1.1.1.1, 1.0.0.1)等
+	// 适用于需要显式允许这些DNS服务的白名单场景
 	PublicDNS PredefinedSet = "public_dns"
 
-	// BroadcastAddresses 代表广播地址
+	// BroadcastAddresses 包含广播地址范围
+	// 包括 255.255.255.255/32（IPv4广播）
+	// 这些地址用于向整个网络广播消息
 	BroadcastAddresses PredefinedSet = "broadcast_addresses"
 
-	// MulticastAddresses 代表多播地址范围
+	// MulticastAddresses 包含组播地址范围
+	// 包括 224.0.0.0/4 (IPv4) 和 ff00::/8 (IPv6)
+	// 这些地址用于将消息发送到订阅特定组播组的多个主机
 	MulticastAddresses PredefinedSet = "multicast_addresses"
 
 	// ReservedAddresses 代表IANA保留的特殊用途地址
@@ -43,7 +63,9 @@ const (
 	// UniqueLocalAddresses 代表IPv6的唯一本地地址
 	UniqueLocalAddresses PredefinedSet = "unique_local_addresses"
 
-	// AllSpecialNetworks 代表所有特殊网络的集合
+	// AllSpecialNetworks 包含所有特殊用途的网络
+	// 这是一个便捷集合，包含上述所有网络，提供最全面的保护
+	// 适用于需要最高安全级别的场景
 	AllSpecialNetworks PredefinedSet = "all_special_networks"
 )
 
@@ -178,10 +200,100 @@ func removeDuplicates(elements []string) []string {
 	return result
 }
 
-// GetPredefinedIPRanges 返回指定预定义集合中的IP地址范围
+// GetPredefinedIPRanges 获取指定预定义集合中的IP范围
+//
+// 参数:
+//   - setName: 预定义集合名称
+//     例如: ip.PrivateNetworks, ip.LoopbackNetworks, ip.CloudMetadata等
+//
+// 返回:
+//   - []string: 预定义集合中的IP/CIDR列表
+//     如果指定的集合不存在，返回nil
+//
+// 示例:
+//
+//	// 获取私有网络IP范围
+//	privateIPs := ip.GetPredefinedIPRanges(ip.PrivateNetworks)
+//	fmt.Printf("私有网络包含 %d 个IP范围:\n", len(privateIPs))
+//	for _, cidr := range privateIPs {
+//	    fmt.Println(cidr)
+//	}
+//
+//	// 获取所有特殊网络IP范围
+//	allSpecialIPs := ip.GetPredefinedIPRanges(ip.AllSpecialNetworks)
+//	fmt.Printf("所有特殊网络共包含 %d 个IP范围\n", len(allSpecialIPs))
+//
+//	// 使用预定义集合创建ACL
+//	blacklist, _ := ip.NewIPAcl([]string{}, types.Blacklist)
+//	blacklist.AddPredefinedSet(ip.PrivateNetworks, false) // 阻止访问内网
 func GetPredefinedIPRanges(setName PredefinedSet) []string {
 	if ranges, ok := PredefinedSets[setName]; ok {
 		return ranges
 	}
 	return nil
+}
+
+// NewIPAclWithDefaults 创建一个新的IP访问控制列表，同时加入预定义的IP集合
+//
+// 参数:
+//   - ipRanges: 基础IP/CIDR列表
+//     例如: []string{"192.168.1.1", "10.0.0.0/8", "2001:db8::/32"}
+//   - listType: 列表类型（黑名单或白名单）
+//     可用值: types.Blacklist（黑名单）或 types.Whitelist（白名单）
+//   - predefinedSets: 要包含的预定义IP集合列表
+//     例如: []PredefinedSet{PrivateNetworks, CloudMetadata}
+//   - allowDefaultSets: 预定义集合的处理方式
+//   - 对于黑名单，false表示阻止这些IP（添加到黑名单）
+//   - 对于白名单，true表示允许这些IP（添加到白名单）
+//
+// 返回:
+//   - *IPAcl: 创建的IP访问控制列表，成功时非nil
+//   - error: 可能的错误:
+//   - ErrInvalidIP: 提供了无效的IP地址格式
+//   - ErrInvalidCIDR: 提供了无效的CIDR格式
+//   - ErrInvalidPredefinedSet: 指定的预定义集合不存在
+//
+// 此函数是创建具有安全防护功能的ACL的便捷方法，特别适用于防止SSRF等攻击。
+//
+// 示例:
+//
+//	// 创建防SSRF的IP黑名单，阻止内网和云元数据访问
+//	blacklist, err := ip.NewIPAclWithDefaults(
+//	    []string{"203.0.113.1"}, // 自定义IP
+//	    types.Blacklist,
+//	    []ip.PredefinedSet{
+//	        ip.PrivateNetworks,  // 内网地址
+//	        ip.CloudMetadata,    // 云服务商元数据地址
+//	    },
+//	    false // 设为false将阻止这些预定义集合中的IP
+//	)
+//	if err != nil {
+//	    log.Printf("创建IP黑名单失败: %v", err)
+//	    return
+//	}
+//
+//	// 创建IP白名单，只允许特定IP和公共DNS服务器
+//	whitelist, err := ip.NewIPAclWithDefaults(
+//	    []string{"203.0.113.1"}, // 自定义IP
+//	    types.Whitelist,
+//	    []ip.PredefinedSet{
+//	        ip.PublicDNS, // 公共DNS服务器
+//	    },
+//	    true // 设为true将允许这些预定义集合中的IP
+//	)
+func NewIPAclWithDefaults(ipRanges []string, listType types.ListType, predefinedSets []PredefinedSet, allowDefaultSets bool) (*IPAcl, error) {
+	// 首先创建基本的ACL
+	acl, err := NewIPAcl(ipRanges, listType)
+	if err != nil {
+		return nil, err
+	}
+
+	// 添加指定的预定义集合
+	for _, setName := range predefinedSets {
+		if err := acl.AddPredefinedSet(setName, allowDefaultSets); err != nil {
+			return nil, err
+		}
+	}
+
+	return acl, nil
 }

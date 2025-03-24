@@ -3,123 +3,179 @@ package config
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"time"
 )
 
+// 标准错误定义
 var (
-	// ErrFileNotFound 表示配置文件未找到
-	ErrFileNotFound = errors.New("configuration file not found")
-	// ErrFilePermission 表示无法访问配置文件
-	ErrFilePermission = errors.New("permission denied when accessing configuration file")
-	// ErrEmptyFile 表示配置文件为空
-	ErrEmptyFile = errors.New("configuration file is empty")
-	// ErrFileExists 表示文件已经存在且不允许覆盖
-	ErrFileExists = errors.New("file already exists and overwrite is not allowed")
+	// ErrFileNotFound 表示要操作的文件不存在
+	ErrFileNotFound = errors.New("文件不存在")
+	// ErrEmptyFile 表示文件为空或只包含注释
+	ErrEmptyFile = errors.New("文件为空或只包含注释")
+	// ErrFileExists 表示要创建的文件已经存在
+	ErrFileExists = errors.New("文件已存在")
+	// ErrFilePermission 表示无权限操作文件
+	ErrFilePermission = errors.New("文件权限错误")
 )
 
-// ReadIPList 从文件中读取IP列表，每行一个IP或CIDR
-// 支持"#"开头的注释行
+// ReadIPList 从文件中读取IP/CIDR列表
 //
 // 参数:
 //   - filePath: 要读取的文件路径
-//     例如: "/path/to/blacklist.txt", "./whitelist.txt"
+//     例如: "/path/to/iplist.txt", "./config/blacklist.txt"
 //
 // 返回:
-//   - []string: 读取到的IP地址列表，例如 ["192.168.1.1", "10.0.0.0/8", "2001:db8::/32"]
-//   - error: 错误信息，可能的错误: ErrFileNotFound, ErrFilePermission, ErrEmptyFile
+//   - []string: 成功读取的IP/CIDR列表
+//     例如: []string{"192.168.1.1", "10.0.0.0/8", "2001:db8::/32"}
+//   - error: 可能的错误:
+//   - ErrFileNotFound: 文件不存在
+//   - ErrEmptyFile: 文件为空或只包含注释
+//   - 其他系统错误: 如权限错误、I/O错误等
+//
+// 文件格式要求:
+//   - 每行一个IP/CIDR
+//   - #开头的行被视为注释，将被忽略
+//   - 行内#后的内容被视为注释，将被忽略
+//   - 空行和只包含空白字符的行会被忽略
+//   - 每个IP/CIDR前后的空白字符会被自动移除
 //
 // 示例文件内容:
 //
-//	# 这是注释行，会被忽略
-//	192.168.1.100  # 行内注释也支持
-//	10.0.0.0/8
+//	# 这是IP列表
+//	192.168.1.1     # 单个IPv4地址
+//	10.0.0.0/8      # IPv4网段
+//	2001:db8::/32   # IPv6网段
 //
-//	# 空行会被忽略
-//	2001:db8::/32
+// 示例:
+//
+//	// 读取IP列表
+//	ips, err := config.ReadIPList("./blacklist.txt")
+//	if err != nil {
+//	    if errors.Is(err, config.ErrFileNotFound) {
+//	        log.Println("指定的IP列表文件不存在")
+//	    } else if errors.Is(err, config.ErrEmptyFile) {
+//	        log.Println("IP列表文件为空")
+//	    } else {
+//	        log.Printf("读取IP列表失败: %v", err)
+//	    }
+//	    return
+//	}
+//
+//	fmt.Printf("成功读取 %d 个IP/CIDR\n", len(ips))
+//	for _, ip := range ips {
+//	    fmt.Println(ip)
+//	}
 func ReadIPList(filePath string) ([]string, error) {
+	// 检查文件是否存在
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return nil, ErrFileNotFound
+	}
+
+	// 打开文件
 	file, err := os.Open(filePath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, ErrFileNotFound
-		}
-		if os.IsPermission(err) {
-			return nil, ErrFilePermission
-		}
 		return nil, err
 	}
 	defer file.Close()
 
-	var ipList []string
+	var ips []string
 	scanner := bufio.NewScanner(file)
+
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		// 跳过空行和注释
+		line := scanner.Text()
+
+		// 去除首尾空格
+		line = strings.TrimSpace(line)
+
+		// 跳过空行和注释行
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// 处理行内注释
+
+		// 移除行内注释
 		if idx := strings.Index(line, "#"); idx != -1 {
 			line = strings.TrimSpace(line[:idx])
 		}
+
+		// 如果处理后的行不为空，则添加到列表中
 		if line != "" {
-			ipList = append(ipList, line)
+			ips = append(ips, line)
 		}
 	}
 
+	// 检查扫描错误
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
 
-	if len(ipList) == 0 {
+	// 检查是否为空列表
+	if len(ips) == 0 {
 		return nil, ErrEmptyFile
 	}
 
-	return ipList, nil
+	return ips, nil
 }
 
-// SaveIPList 将IP列表保存到文件，每行一个IP或CIDR
-// 如果文件已存在，overwrite参数决定是否覆盖文件
+// SaveIPList 将IP/CIDR列表保存到文件
 //
 // 参数:
 //   - filePath: 要保存的文件路径
-//     例如: "/path/to/blacklist.txt", "./whitelist.txt"
-//   - ipList: 要保存的IP地址列表
-//     例如: ["192.168.1.1", "10.0.0.0/8", "2001:db8::/32"]
-//   - header: 文件顶部的注释信息，将自动添加"#"前缀
-//     例如: "IP Blacklist - IPs in this list will be denied access"
+//     例如: "/path/to/iplist.txt", "./config/whitelist.txt"
+//   - ipList: 要保存的IP/CIDR列表
+//     例如: []string{"192.168.1.1", "10.0.0.0/8", "2001:db8::/32"}
+//   - header: 添加到文件顶部的标题/描述信息
+//     例如: "IP Blacklist - Blocked IPs", "Trusted IP Whitelist"
 //   - overwrite: 是否覆盖已存在的文件
-//     true: 如果文件已存在，将覆盖
-//     false: 如果文件已存在，将返回ErrFileExists错误
+//     true: 如果文件已存在，会被覆盖
+//     false: 如果文件已存在，返回ErrFileExists错误
 //
 // 返回:
-//   - error: 错误信息，可能的错误: ErrFileExists, ErrFilePermission
+//   - error: 可能的错误:
+//   - ErrFileExists: 文件已存在且overwrite=false
+//   - ErrFilePermission: 无权限写入文件
+//   - 其他系统错误: 如路径不存在、I/O错误等
 //
-// 生成的文件格式示例:
+// 生成的文件格式:
+//   - 第一行是提供的header（如有）
+//   - 第二行是生成时间
+//   - 之后每行一个IP/CIDR
 //
-//	# IP Blacklist - IPs in this list will be denied access
-//	# Generated at: 2023-10-15 14:30:25
-//	#-------------------------------------
+// 示例:
 //
-//	192.168.1.100
-//	10.0.0.0/8
-//	2001:db8::/32
+//	// 保存IP黑名单到文件
+//	ips := []string{"192.168.1.1", "10.0.0.0/8", "2001:db8::/32"}
+//	err := config.SaveIPList(
+//	    "./my_blacklist.txt",            // 保存路径
+//	    ips,                             // IP列表
+//	    "IP Blacklist - Blocked IPs",    // 文件标题
+//	    false                            // 不覆盖已存在的文件
+//	)
+//
+//	if err != nil {
+//	    if errors.Is(err, config.ErrFileExists) {
+//	        log.Println("文件已存在，未覆盖")
+//	    } else {
+//	        log.Printf("保存IP列表失败: %v", err)
+//	    }
+//	    return
+//	}
+//
+//	log.Println("成功保存IP列表")
 func SaveIPList(filePath string, ipList []string, header string, overwrite bool) error {
-	// 检查文件是否存在
+	// 检查文件是否已存在
 	if !overwrite {
 		if _, err := os.Stat(filePath); err == nil {
-			// 文件存在且不允许覆盖
 			return ErrFileExists
-		} else if !os.IsNotExist(err) {
-			// 其他错误
-			return err
 		}
 	}
 
-	// 创建或覆盖文件
+	// 创建或打开文件
 	file, err := os.Create(filePath)
 	if err != nil {
+		// 检查是否为权限问题
 		if os.IsPermission(err) {
 			return ErrFilePermission
 		}
@@ -129,7 +185,7 @@ func SaveIPList(filePath string, ipList []string, header string, overwrite bool)
 
 	writer := bufio.NewWriter(file)
 
-	// 写入文件头部注释
+	// 写入标题
 	if header != "" {
 		_, err = writer.WriteString("# " + header + "\n")
 		if err != nil {
@@ -137,20 +193,14 @@ func SaveIPList(filePath string, ipList []string, header string, overwrite bool)
 		}
 	}
 
-	// 写入时间标记
-	_, err = writer.WriteString("# Generated at: " +
-		(time.Now().Format("2006-01-02 15:04:05")) + "\n")
+	// 写入生成时间
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	_, err = writer.WriteString(fmt.Sprintf("# Generated at: %s\n", timestamp))
 	if err != nil {
 		return err
 	}
 
-	// 写入分隔线
-	_, err = writer.WriteString("#-------------------------------------\n\n")
-	if err != nil {
-		return err
-	}
-
-	// 写入每一个IP或CIDR
+	// 写入IP列表
 	for _, ip := range ipList {
 		_, err = writer.WriteString(ip + "\n")
 		if err != nil {
@@ -158,5 +208,6 @@ func SaveIPList(filePath string, ipList []string, header string, overwrite bool)
 		}
 	}
 
+	// 刷新缓冲区
 	return writer.Flush()
 }
