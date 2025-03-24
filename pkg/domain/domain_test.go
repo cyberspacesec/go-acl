@@ -1073,3 +1073,52 @@ func TestDomainAcl_CheckEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+// TestPortParsingEdgeCases 测试端口解析的边缘情况
+func TestPortParsingEdgeCases(t *testing.T) {
+	tests := []struct {
+		name       string
+		domain     string
+		normalized string
+	}{
+		{
+			name:       "端口后带问号",
+			domain:     "example.com:8080?query=value",
+			normalized: "example.com",
+		},
+		{
+			name:       "端口后带锚点",
+			domain:     "example.com:8080#section",
+			normalized: "example.com",
+		},
+		{
+			name:       "端口包含非数字字符",
+			domain:     "example.com:80ab",
+			normalized: "example.com:80ab",
+		},
+		{
+			name:       "端口带斜杠带问号",
+			domain:     "example.com:8080/path?query=value",
+			normalized: "example.com",
+		},
+		{
+			name:       "端口带斜杠带锚点",
+			domain:     "example.com:8080/path#section",
+			normalized: "example.com",
+		},
+		{
+			name:       "复杂URL:带协议、用户名密码、端口、路径、问号和锚点",
+			domain:     "https://user:pass@example.com:8080/path?query=value#section",
+			normalized: "example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeDomain(tt.domain)
+			if got != tt.normalized {
+				t.Errorf("normalizeDomain() = %v, 期望 %v", got, tt.normalized)
+			}
+		})
+	}
+}

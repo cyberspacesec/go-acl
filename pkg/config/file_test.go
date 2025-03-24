@@ -63,7 +63,7 @@ var (
 var testDir string
 
 // setUp 在测试前创建必要的测试数据
-func setUp(t *testing.T) {
+func setUp(t *testing.T) string {
 	// 创建一个唯一的临时测试目录
 	var err error
 	testDir, err = os.MkdirTemp("", "go-acl-test-*")
@@ -91,20 +91,22 @@ func setUp(t *testing.T) {
 	if err != nil {
 		t.Logf("警告: 无法设置文件权限，权限测试可能不准确: %v", err)
 	}
+
+	return testDir
 }
 
 // tearDown 在测试后清理测试数据
-func tearDown(t *testing.T) {
-	if testDir == "" {
+func tearDown(t *testing.T, dir string) {
+	if dir == "" {
 		return
 	}
 
 	// 确保权限恢复以便删除
-	permFile := filepath.Join(testDir, noPermissionFile)
+	permFile := filepath.Join(dir, noPermissionFile)
 	_ = os.Chmod(permFile, 0644)
 
 	// 删除测试目录及所有内容
-	err := os.RemoveAll(testDir)
+	err := os.RemoveAll(dir)
 	if err != nil {
 		t.Logf("警告: 无法清理测试目录: %v", err)
 	}
@@ -121,7 +123,7 @@ func createTestFile(t *testing.T, path, content string) {
 // TestReadIPList 测试从文件读取IP列表的函数
 func TestReadIPList(t *testing.T) {
 	setUp(t)
-	defer tearDown(t)
+	defer tearDown(t, testDir)
 
 	tests := []struct {
 		name        string
@@ -210,7 +212,7 @@ func TestReadIPList(t *testing.T) {
 // TestSaveIPList 测试保存IP列表到文件的函数
 func TestSaveIPList(t *testing.T) {
 	setUp(t)
-	defer tearDown(t)
+	defer tearDown(t, testDir)
 
 	invalidPath := getInvalidPath()
 
@@ -348,7 +350,7 @@ func TestSaveIPList(t *testing.T) {
 // TestReadThenSave 测试读取文件后再保存的完整流程
 func TestReadThenSave(t *testing.T) {
 	setUp(t)
-	defer tearDown(t)
+	defer tearDown(t, testDir)
 
 	// 1. 首先读取有效的IP文件
 	sourcePath := filepath.Join(testDir, validIPFile)
@@ -379,7 +381,7 @@ func TestReadThenSave(t *testing.T) {
 // TestEdgeCases 测试一些边缘情况
 func TestEdgeCases(t *testing.T) {
 	setUp(t)
-	defer tearDown(t)
+	defer tearDown(t, testDir)
 
 	// 测试保存空IP列表
 	t.Run("保存空IP列表", func(t *testing.T) {
@@ -456,4 +458,58 @@ func TestEdgeCases(t *testing.T) {
 			t.Errorf("期望 [8.8.8.8], 但得到 %v", ips)
 		}
 	})
+}
+
+// TestReadIPListErrorHandling 测试ReadIPList函数的错误处理
+func TestReadIPListErrorHandling(t *testing.T) {
+	tmpDir := setUp(t)
+	defer tearDown(t, tmpDir)
+
+	// 测试Read操作系统错误（非权限和非存在错误）
+	// 这需要模拟一个特殊情况，如通过在读取过程中删除文件来触发
+	filePath := filepath.Join(tmpDir, "temp_file.txt")
+	createTestFile(t, filePath, "192.168.1.1")
+
+	// 创建一个不可读的文件（仅写权限）
+	noReadPath := filepath.Join(tmpDir, "no_read.txt")
+	file, err := os.OpenFile(noReadPath, os.O_CREATE|os.O_WRONLY, 0200) // 只写权限
+	if err != nil {
+		t.Fatalf("无法创建测试文件: %v", err)
+	}
+	file.Close()
+
+	// 尝试读取
+	_, err = ReadIPList(noReadPath)
+	if err == nil {
+		t.Errorf("对于无读取权限的文件，ReadIPList应返回错误")
+	}
+
+	// 测试Scanner错误（通常需要一个特殊的Reader来模拟，这里简单测试）
+	// 大多数情况下，Scanner错误在正常文件读取中很难触发
+}
+
+// TestSaveIPListErrorHandling 测试SaveIPList函数的错误处理
+func TestSaveIPListErrorHandling(t *testing.T) {
+	tmpDir := setUp(t)
+	defer tearDown(t, tmpDir)
+
+	// 测试创建文件的操作系统错误
+	invalidPath := filepath.Join("/nonexistent", "file.txt")
+	err := SaveIPList(invalidPath, []string{"192.168.1.1"}, "测试", true)
+	if err == nil {
+		t.Errorf("无效路径应返回错误")
+	}
+
+	// 测试写入错误处理（header写入失败）
+	readOnlyPath := filepath.Join(tmpDir, "dir")
+	err = os.Mkdir(readOnlyPath, 0500) // 只读目录
+	if err != nil {
+		t.Fatalf("无法创建测试目录: %v", err)
+	}
+
+	invalidFilePath := filepath.Join(readOnlyPath, "invalid.txt")
+	err = SaveIPList(invalidFilePath, []string{"192.168.1.1"}, "测试", true)
+	if err == nil {
+		t.Errorf("写入只读目录应返回错误")
+	}
 }

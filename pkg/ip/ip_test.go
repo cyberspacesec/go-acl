@@ -542,6 +542,15 @@ func TestNewIPAclWithDefaults(t *testing.T) {
 	}
 }
 
+// TestNewIPAclWithDefaultsErrorCases 测试NewIPAclWithDefaults函数的错误处理
+func TestNewIPAclWithDefaultsErrorCases(t *testing.T) {
+	// 测试无效的IP范围导致的错误
+	_, err := NewIPAclWithDefaults([]string{"invalid-ip"}, types.Blacklist, []PredefinedSet{PrivateNetworks}, false)
+	if err == nil {
+		t.Errorf("对于无效的IP范围，应该返回错误")
+	}
+}
+
 // TestIPAcl_AddPredefinedSet 测试添加预定义集合
 func TestIPAcl_AddPredefinedSet(t *testing.T) {
 	tests := []struct {
@@ -633,6 +642,60 @@ func TestIPAcl_AddPredefinedSet(t *testing.T) {
 					initialCount, finalCount)
 			}
 		})
+	}
+}
+
+// TestIPAcl_AddPredefinedSetEdgeCases 测试AddPredefinedSet函数的边缘情况
+func TestIPAcl_AddPredefinedSetEdgeCases(t *testing.T) {
+	// 测试白名单模式且allowSet=false的情况（不应添加预定义集合）
+	acl, err := NewIPAcl([]string{"8.8.8.8"}, types.Whitelist)
+	if err != nil {
+		t.Fatalf("创建ACL失败: %v", err)
+	}
+
+	initialCount := len(acl.GetIPRanges())
+	err = acl.AddPredefinedSet(PrivateNetworks, false)
+	if err != nil {
+		t.Fatalf("AddPredefinedSet失败: %v", err)
+	}
+
+	// 检查IP范围数量是否保持不变（不应该添加）
+	if len(acl.GetIPRanges()) != initialCount {
+		t.Errorf("白名单模式且allowSet=false时不应添加IP，期望 %d 个IP，实际有 %d 个",
+			initialCount, len(acl.GetIPRanges()))
+	}
+
+	// 测试黑名单模式且allowSet=true的情况（不应添加预定义集合）
+	acl, err = NewIPAcl([]string{"8.8.8.8"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建ACL失败: %v", err)
+	}
+
+	initialCount = len(acl.GetIPRanges())
+	err = acl.AddPredefinedSet(PrivateNetworks, true)
+	if err != nil {
+		t.Fatalf("AddPredefinedSet失败: %v", err)
+	}
+
+	// 检查IP范围数量是否保持不变（不应该添加）
+	if len(acl.GetIPRanges()) != initialCount {
+		t.Errorf("黑名单模式且allowSet=true时不应添加IP，期望 %d 个IP，实际有 %d 个",
+			initialCount, len(acl.GetIPRanges()))
+	}
+}
+
+// TestIPAcl_RemoveEmptyList 测试从空列表中移除IP的情况
+func TestIPAcl_RemoveEmptyList(t *testing.T) {
+	// 创建一个空的ACL
+	acl, err := NewIPAcl([]string{}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建ACL失败: %v", err)
+	}
+
+	// 尝试移除IP
+	err = acl.Remove("192.168.1.1")
+	if err == nil || err != ErrIPNotFound {
+		t.Errorf("从空列表移除不存在的IP应返回ErrIPNotFound，但得到 %v", err)
 	}
 }
 
