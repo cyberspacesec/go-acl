@@ -1,21 +1,21 @@
 // Package types 提供go-acl库的基础类型、接口和常量
 package types
 
-// Acl 是所有访问控制列表实现的接口
+// ACL 是所有访问控制列表实现的接口
 // 该接口定义了访问控制列表的核心功能 - 检查访问权限
 // 库中所有的ACL实现（如IP ACL、域名ACL等）都必须实现此接口
 //
 // 接口实现示例:
 //
-//	type MyAcl struct {
+//	type MyACL struct {
 //	    // 实现细节...
 //	}
 //
-//	func (m *MyAcl) Check(value string) (Permission, error) {
+//	func (m *MyACL) Check(value string) (Permission, error) {
 //	    // 检查逻辑实现...
 //	    return Allowed, nil
 //	}
-type Acl interface {
+type ACL interface {
 	// Check 检查请求是否允许访问
 	// 这是ACL的核心方法，用于确定某个值是否允许访问
 	//

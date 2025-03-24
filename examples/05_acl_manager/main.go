@@ -128,7 +128,7 @@ func example2(manager *acl.Manager) {
 	for _, domain := range domains {
 		perm, err := manager.CheckDomain(domain)
 		if err != nil {
-			if errors.Is(err, types.ErrNoAcl) {
+			if errors.Is(err, types.ErrNoACL) {
 				fmt.Printf("  %s: 未配置域名ACL\n", domain)
 			} else {
 				fmt.Printf("  %s: 检查失败 - %v\n", domain, err)
@@ -145,7 +145,7 @@ func example2(manager *acl.Manager) {
 	for _, ipAddr := range ips {
 		perm, err := manager.CheckIP(ipAddr)
 		if err != nil {
-			if errors.Is(err, types.ErrNoAcl) {
+			if errors.Is(err, types.ErrNoACL) {
 				fmt.Printf("  %s: 未配置IP ACL\n", ipAddr)
 			} else {
 				fmt.Printf("  %s: 检查失败 - %v\n", ipAddr, err)
@@ -293,12 +293,12 @@ func example3(manager *acl.Manager, tmpDir string) {
 
 	// 检查重置后的状态
 	_, err = manager.CheckDomain("example.com")
-	if errors.Is(err, types.ErrNoAcl) {
+	if errors.Is(err, types.ErrNoACL) {
 		fmt.Println("域名ACL已成功重置")
 	}
 
 	_, err = manager.CheckIP("8.8.8.8")
-	if errors.Is(err, types.ErrNoAcl) {
+	if errors.Is(err, types.ErrNoACL) {
 		fmt.Println("IP ACL已成功重置")
 	}
 
@@ -357,7 +357,7 @@ func displayManagerConfig(manager *acl.Manager) {
 	// 显示域名ACL信息
 	domainListType, err := manager.GetDomainACLType()
 	if err != nil {
-		if errors.Is(err, types.ErrNoAcl) {
+		if errors.Is(err, types.ErrNoACL) {
 			fmt.Println("  域名ACL: 未配置")
 		} else {
 			fmt.Printf("  域名ACL: 获取类型失败 - %v\n", err)
@@ -389,7 +389,7 @@ func displayManagerConfig(manager *acl.Manager) {
 	// 显示IP ACL信息
 	ipAclType, err := manager.GetIPACLType()
 	if err != nil {
-		if errors.Is(err, types.ErrNoAcl) {
+		if errors.Is(err, types.ErrNoACL) {
 			fmt.Println("  IP ACL: 未配置")
 		} else {
 			fmt.Printf("  IP ACL: 获取失败 - %v\n", err)

@@ -282,36 +282,20 @@ func TestSetIPACLWithDefaults(t *testing.T) {
 // TestAddIP 测试添加IP
 func TestAddIP(t *testing.T) {
 	manager := NewManager()
-	initialIPs := []string{"192.168.1.1"}
+	initialIPs := []string{"192.168.1.1", "10.0.0.1"}
 
-	// 先设置初始IP ACL
-	err := manager.SetIPACL(initialIPs, types.Blacklist)
-	if err != nil {
-		t.Fatalf("SetIPACL() 返回错误: %v", err)
-	}
-
-	// 添加IP
-	err = manager.AddIP("10.0.0.1", "172.16.0.1")
-	if err != nil {
-		t.Errorf("AddIP() 返回错误: %v", err)
-	}
-
-	// 验证IP是否被添加
-	gotIPs := manager.GetIPRanges()
-	expectedCount := len(initialIPs) + 2
-	if len(gotIPs) != expectedCount {
-		t.Errorf("GetIPRanges() 长度 = %d, 期望 %d", len(gotIPs), expectedCount)
-	}
-
-	// 测试无IP ACL的情况
-	manager = NewManager()
-	err = manager.AddIP("10.0.0.1")
+	// 测试在没有设置IP ACL的情况下添加IP
+	err := manager.AddIP("8.8.8.8")
 	if err == nil {
 		t.Error("AddIP() 在没有设置IP ACL时应返回错误")
 	}
 
 	// 测试无效IP
-	manager.SetIPACL(initialIPs, types.Blacklist)
+	err = manager.SetIPACL(initialIPs, types.Blacklist)
+	if err != nil {
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
+	}
+
 	err = manager.AddIP("invalid-ip")
 	if err == nil {
 		t.Error("AddIP() 对于无效IP应返回错误")

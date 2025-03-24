@@ -174,7 +174,7 @@ func (m *Manager) SetIPACLFromFile(filePath string, listType types.ListType) err
 //
 // 返回:
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置IP ACL
+//   - types.ErrNoACL: 如果未设置IP ACL
 //   - config.ErrFileExists: 如果文件已存在且overwrite=false
 //   - config.ErrFilePermission: 如果无权限写入文件
 //
@@ -190,7 +190,7 @@ func (m *Manager) SetIPACLFromFile(filePath string, listType types.ListType) err
 //	if err != nil {
 //	    if errors.Is(err, config.ErrFileExists) {
 //	        log.Println("文件已存在，未覆盖")
-//	    } else if errors.Is(err, types.ErrNoAcl) {
+//	    } else if errors.Is(err, types.ErrNoACL) {
 //	        log.Println("未设置IP ACL，无需保存")
 //	    } else {
 //	        log.Printf("保存失败: %v", err)
@@ -201,7 +201,7 @@ func (m *Manager) SaveIPACLToFile(filePath string, overwrite bool) error {
 	defer m.mu.RUnlock()
 
 	if m.ipACL == nil {
-		return types.ErrNoAcl
+		return types.ErrNoACL
 	}
 
 	return m.ipACL.SaveToFile(filePath, overwrite)
@@ -234,7 +234,7 @@ func (m *Manager) SaveIPACLToFileWithOverwrite(filePath string) error {
 //
 // 返回:
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置IP ACL
+//   - types.ErrNoACL: 如果未设置IP ACL
 //   - config.ErrFileNotFound: 如果文件不存在
 //   - ip.ErrInvalidIP/ip.ErrInvalidCIDR: 如果文件中包含无效IP
 //
@@ -246,7 +246,7 @@ func (m *Manager) SaveIPACLToFileWithOverwrite(filePath string) error {
 //	// 向现有IP列表添加更多IP
 //	err := manager.AddIPFromFile("./additional_ips.txt")
 //	if err != nil {
-//	    if errors.Is(err, types.ErrNoAcl) {
+//	    if errors.Is(err, types.ErrNoACL) {
 //	        log.Println("请先设置IP ACL")
 //	    } else {
 //	        log.Printf("添加IP失败: %v", err)
@@ -257,7 +257,7 @@ func (m *Manager) AddIPFromFile(filePath string) error {
 	defer m.mu.Unlock()
 
 	if m.ipACL == nil {
-		return types.ErrNoAcl
+		return types.ErrNoACL
 	}
 
 	return m.ipACL.AddFromFile(filePath)
@@ -323,7 +323,7 @@ func (m *Manager) SetIPACLWithDefaults(ipRanges []string, listType types.ListTyp
 //
 // 返回:
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置IP ACL
+//   - types.ErrNoACL: 如果未设置IP ACL
 //   - ip.ErrInvalidIP: 如果提供了无效IP
 //   - ip.ErrInvalidCIDR: 如果提供了无效CIDR
 //
@@ -337,7 +337,7 @@ func (m *Manager) SetIPACLWithDefaults(ipRanges []string, listType types.ListTyp
 //	// 添加多个IP和CIDR
 //	err := manager.AddIP("8.8.8.8", "8.8.4.4", "192.168.0.0/16")
 //	if err != nil {
-//	    if errors.Is(err, types.ErrNoAcl) {
+//	    if errors.Is(err, types.ErrNoACL) {
 //	        log.Println("请先设置IP ACL")
 //	    } else {
 //	        log.Printf("添加IP失败: %v", err)
@@ -348,7 +348,7 @@ func (m *Manager) AddIP(ipRanges ...string) error {
 	defer m.mu.Unlock()
 
 	if m.ipACL == nil {
-		return types.ErrNoAcl
+		return types.ErrNoACL
 	}
 
 	return m.ipACL.Add(ipRanges...)
@@ -362,7 +362,7 @@ func (m *Manager) AddIP(ipRanges ...string) error {
 //
 // 返回:
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置IP ACL
+//   - types.ErrNoACL: 如果未设置IP ACL
 //   - ip.ErrIPNotFound: 如果要移除的IP不在列表中
 //
 // 示例:
@@ -373,7 +373,7 @@ func (m *Manager) AddIP(ipRanges ...string) error {
 //	// 移除多个IP和CIDR
 //	err := manager.RemoveIP("8.8.8.8", "10.0.0.0/8")
 //	if err != nil {
-//	    if errors.Is(err, types.ErrNoAcl) {
+//	    if errors.Is(err, types.ErrNoACL) {
 //	        log.Println("未设置IP ACL")
 //	    } else if errors.Is(err, ip.ErrIPNotFound) {
 //	        log.Println("要移除的IP不在列表中")
@@ -386,7 +386,7 @@ func (m *Manager) RemoveIP(ipRanges ...string) error {
 	defer m.mu.Unlock()
 
 	if m.ipACL == nil {
-		return types.ErrNoAcl
+		return types.ErrNoACL
 	}
 
 	return m.ipACL.Remove(ipRanges...)
@@ -404,7 +404,7 @@ func (m *Manager) RemoveIP(ipRanges ...string) error {
 //
 // 返回:
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置IP ACL
+//   - types.ErrNoACL: 如果未设置IP ACL
 //   - ip.ErrInvalidPredefinedSet: 如果提供了无效的预定义集合名称
 //
 // 预定义集合包含常见的特殊网络，如内网地址、云元数据地址等，
@@ -426,7 +426,7 @@ func (m *Manager) AddPredefinedIPSet(setName ip.PredefinedSet, allowSet bool) er
 	defer m.mu.Unlock()
 
 	if m.ipACL == nil {
-		return types.ErrNoAcl
+		return types.ErrNoACL
 	}
 
 	return m.ipACL.AddPredefinedSet(setName, allowSet)
@@ -463,7 +463,7 @@ func (m *Manager) AddAllSpecialNetworks() error {
 //   - types.Allowed: 允许访问
 //   - types.Denied: 拒绝访问
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置域名ACL
+//   - types.ErrNoACL: 如果未设置域名ACL
 //   - domain.ErrInvalidDomain: 如果提供了无效域名
 //
 // 域名会自动标准化（移除协议、www前缀、端口号等）。
@@ -475,7 +475,7 @@ func (m *Manager) AddAllSpecialNetworks() error {
 //	// 检查域名是否允许访问
 //	permission, err := manager.CheckDomain("sub.example.com")
 //	if err != nil {
-//	    if errors.Is(err, types.ErrNoAcl) {
+//	    if errors.Is(err, types.ErrNoACL) {
 //	        log.Println("未设置域名ACL")
 //	    } else {
 //	        log.Printf("检查域名错误: %v", err)
@@ -490,7 +490,7 @@ func (m *Manager) CheckDomain(domain string) (types.Permission, error) {
 	defer m.mu.RUnlock()
 
 	if m.domainACL == nil {
-		return types.Denied, types.ErrNoAcl
+		return types.Denied, types.ErrNoACL
 	}
 	return m.domainACL.Check(domain)
 }
@@ -506,7 +506,7 @@ func (m *Manager) CheckDomain(domain string) (types.Permission, error) {
 //   - types.Allowed: 允许访问
 //   - types.Denied: 拒绝访问
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置IP ACL
+//   - types.ErrNoACL: 如果未设置IP ACL
 //   - ip.ErrInvalidIP: 如果提供了无效IP
 //
 // 支持IPv4和IPv6地址，不支持CIDR格式（仅检查单个IP）。
@@ -516,7 +516,7 @@ func (m *Manager) CheckDomain(domain string) (types.Permission, error) {
 //	// 检查IP是否允许访问
 //	permission, err := manager.CheckIP("8.8.8.8")
 //	if err != nil {
-//	    if errors.Is(err, types.ErrNoAcl) {
+//	    if errors.Is(err, types.ErrNoACL) {
 //	        log.Println("未设置IP ACL")
 //	    } else if errors.Is(err, ip.ErrInvalidIP) {
 //	        log.Println("无效的IP格式")
@@ -533,7 +533,7 @@ func (m *Manager) CheckIP(ip string) (types.Permission, error) {
 	defer m.mu.RUnlock()
 
 	if m.ipACL == nil {
-		return types.Denied, types.ErrNoAcl
+		return types.Denied, types.ErrNoACL
 	}
 	return m.ipACL.Check(ip)
 }
@@ -577,7 +577,7 @@ func (m *Manager) GetIPRanges() []string {
 //   - types.Blacklist: 黑名单模式
 //   - types.Whitelist: 白名单模式
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置IP ACL
+//   - types.ErrNoACL: 如果未设置IP ACL
 //
 // 此方法可用于确定当前IP ACL的工作模式。
 //
@@ -586,7 +586,7 @@ func (m *Manager) GetIPRanges() []string {
 //	// 获取IP ACL类型
 //	listType, err := manager.GetIPACLType()
 //	if err != nil {
-//	    if errors.Is(err, types.ErrNoAcl) {
+//	    if errors.Is(err, types.ErrNoACL) {
 //	        log.Println("未设置IP ACL")
 //	    }
 //	} else if listType == types.Blacklist {
@@ -599,7 +599,7 @@ func (m *Manager) GetIPACLType() (types.ListType, error) {
 	defer m.mu.RUnlock()
 
 	if m.ipACL == nil {
-		return 0, types.ErrNoAcl
+		return 0, types.ErrNoACL
 	}
 	return m.ipACL.GetListType(), nil
 }
@@ -612,7 +612,7 @@ func (m *Manager) GetIPACLType() (types.ListType, error) {
 //
 // 返回:
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置域名ACL
+//   - types.ErrNoACL: 如果未设置域名ACL
 //
 // 域名会自动标准化（移除协议、www前缀、端口号等）。
 // 空域名或格式无效的域名会被忽略。
@@ -625,7 +625,7 @@ func (m *Manager) GetIPACLType() (types.ListType, error) {
 //	// 添加多个域名
 //	err := manager.AddDomain("domain1.com", "domain2.org", "domain3.net")
 //	if err != nil {
-//	    if errors.Is(err, types.ErrNoAcl) {
+//	    if errors.Is(err, types.ErrNoACL) {
 //	        log.Println("请先设置域名ACL")
 //	    } else {
 //	        log.Printf("添加域名失败: %v", err)
@@ -636,7 +636,7 @@ func (m *Manager) AddDomain(domains ...string) error {
 	defer m.mu.Unlock()
 
 	if m.domainACL == nil {
-		return types.ErrNoAcl
+		return types.ErrNoACL
 	}
 
 	m.domainACL.Add(domains...)
@@ -651,7 +651,7 @@ func (m *Manager) AddDomain(domains ...string) error {
 //
 // 返回:
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置域名ACL
+//   - types.ErrNoACL: 如果未设置域名ACL
 //   - domain.ErrDomainNotFound: 如果要移除的域名不在列表中
 //
 // 域名会自动标准化（移除协议、www前缀、端口号等）。
@@ -666,7 +666,7 @@ func (m *Manager) AddDomain(domains ...string) error {
 //	// 移除多个域名
 //	err := manager.RemoveDomain("domain1.com", "domain2.org")
 //	if err != nil {
-//	    if errors.Is(err, types.ErrNoAcl) {
+//	    if errors.Is(err, types.ErrNoACL) {
 //	        log.Println("未设置域名ACL")
 //	    } else if errors.Is(err, domain.ErrDomainNotFound) {
 //	        log.Println("一个或多个域名不在列表中")
@@ -679,7 +679,7 @@ func (m *Manager) RemoveDomain(domains ...string) error {
 	defer m.mu.Unlock()
 
 	if m.domainACL == nil {
-		return types.ErrNoAcl
+		return types.ErrNoACL
 	}
 
 	return m.domainACL.Remove(domains...)
@@ -722,7 +722,7 @@ func (m *Manager) GetDomains() []string {
 //   - types.Blacklist: 黑名单模式
 //   - types.Whitelist: 白名单模式
 //   - error: 可能的错误:
-//   - types.ErrNoAcl: 如果未设置域名ACL
+//   - types.ErrNoACL: 如果未设置域名ACL
 //
 // 此方法可用于确定当前域名ACL的工作模式。
 //
@@ -731,7 +731,7 @@ func (m *Manager) GetDomains() []string {
 //	// 获取域名ACL类型
 //	listType, err := manager.GetDomainACLType()
 //	if err != nil {
-//	    if errors.Is(err, types.ErrNoAcl) {
+//	    if errors.Is(err, types.ErrNoACL) {
 //	        log.Println("未设置域名ACL")
 //	    }
 //	} else if listType == types.Blacklist {
@@ -744,7 +744,7 @@ func (m *Manager) GetDomainACLType() (types.ListType, error) {
 	defer m.mu.RUnlock()
 
 	if m.domainACL == nil {
-		return 0, types.ErrNoAcl
+		return 0, types.ErrNoACL
 	}
 	return m.domainACL.GetListType(), nil
 }
@@ -752,7 +752,7 @@ func (m *Manager) GetDomainACLType() (types.ListType, error) {
 // Reset 重置所有访问控制列表
 //
 // 此方法会清除所有域名和IP访问控制设置，使管理器恢复到初始状态。
-// 调用此方法后，CheckDomain和CheckIP等方法将返回ErrNoAcl错误，
+// 调用此方法后，CheckDomain和CheckIP等方法将返回ErrNoACL错误，
 // 直到重新设置相应的ACL。
 //
 // 示例:
@@ -762,7 +762,7 @@ func (m *Manager) GetDomainACLType() (types.ListType, error) {
 //
 //	// 验证已重置
 //	_, err := manager.CheckDomain("example.com")
-//	if errors.Is(err, types.ErrNoAcl) {
+//	if errors.Is(err, types.ErrNoACL) {
 //	    log.Println("域名ACL已成功重置")
 //	}
 func (m *Manager) Reset() {

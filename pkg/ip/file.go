@@ -128,8 +128,8 @@ func (a *IPACL) SaveToFile(filePath string, overwrite bool) error {
 
 // SaveToFileWithOverwrite 兼容旧版API，默认覆盖已存在的文件
 // 已废弃：请改用 SaveToFile
-func (i *IPACL) SaveToFileWithOverwrite(filePath string) error {
-	return i.SaveToFile(filePath, true)
+func (a *IPACL) SaveToFileWithOverwrite(filePath string) error {
+	return a.SaveToFile(filePath, true)
 }
 
 // AddFromFile 从文件添加IP/CIDR到现有的访问控制列表

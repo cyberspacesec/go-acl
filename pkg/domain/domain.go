@@ -367,9 +367,7 @@ func normalizeDomain(domain string) string {
 	}
 
 	// 处理特殊的双斜杠开头格式 (//example.com)
-	if strings.HasPrefix(domain, "//") {
-		domain = domain[2:]
-	}
+	domain = strings.TrimPrefix(domain, "//")
 
 	// 移除协议前缀
 	domain = strings.TrimPrefix(domain, "http://")
@@ -405,9 +403,7 @@ func normalizeDomain(domain string) string {
 	}
 
 	// 移除www前缀
-	if strings.HasPrefix(domain, "www.") {
-		domain = domain[4:]
-	}
+	domain = strings.TrimPrefix(domain, "www.")
 
 	return domain
 }

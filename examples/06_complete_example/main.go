@@ -169,7 +169,7 @@ func (app *WebApp) PrintAccessControlConfig() {
 				fmt.Printf("  ...共 %d 个域名\n", len(domains))
 			}
 		}
-	} else if errors.Is(err, types.ErrNoAcl) {
+	} else if errors.Is(err, types.ErrNoACL) {
 		fmt.Println("域名ACL: 未配置")
 	} else {
 		fmt.Printf("获取域名ACL失败: %v\n", err)
@@ -198,7 +198,7 @@ func (app *WebApp) PrintAccessControlConfig() {
 				fmt.Printf("  ...共 %d 个IP/CIDR\n", len(ips))
 			}
 		}
-	} else if errors.Is(err, types.ErrNoAcl) {
+	} else if errors.Is(err, types.ErrNoACL) {
 		fmt.Println("IP ACL: 未配置")
 	} else {
 		fmt.Printf("获取IP ACL失败: %v\n", err)

@@ -432,13 +432,13 @@ func TestEndToEndFileOperations(t *testing.T) {
 	}
 
 	// 4. 从保存的文件重新加载
-	reloadedAcl, err := NewIPACLFromFile(savedPath, types.Blacklist)
+	reloadedACL, err := NewIPACLFromFile(savedPath, types.Blacklist)
 	if err != nil {
 		t.Fatalf("重新加载失败: %v", err)
 	}
 
 	// 验证重新加载的IP数量和内容
-	reloadedIPs := reloadedAcl.GetIPRanges()
+	reloadedIPs := reloadedACL.GetIPRanges()
 	if !reflect.DeepEqual(reloadedIPs, afterAddIPs) {
 		t.Errorf("Reloaded IPs = %v, want %v", reloadedIPs, afterAddIPs)
 	}
