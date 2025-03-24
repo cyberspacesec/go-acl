@@ -58,7 +58,7 @@ import (
 //	           ipACL.GetListType())
 func NewIPACLFromFile(filePath string, listType types.ListType) (*IPACL, error) {
 	// 从文件读取IP列表
-	ipRanges, err := config.ReadIPList(filePath)
+	ipRanges, err := config.ReadIPACL(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (a *IPACL) SaveToFile(filePath string, overwrite bool) error {
 	}
 
 	// 保存到文件
-	return config.SaveIPList(filePath, a.GetIPRanges(), header, overwrite)
+	return config.SaveIPACLWithHeader(filePath, a.GetIPRanges(), header, overwrite)
 }
 
 // SaveToFileWithOverwrite 兼容旧版API，默认覆盖已存在的文件
@@ -175,7 +175,7 @@ func (i *IPACL) SaveToFileWithOverwrite(filePath string) error {
 //	fmt.Printf("当前包含 %d 个IP/CIDR\n", len(ipACL.GetIPRanges()))
 func (a *IPACL) AddFromFile(filePath string) error {
 	// 从文件读取IP列表
-	ipRanges, err := config.ReadIPList(filePath)
+	ipRanges, err := config.ReadIPACL(filePath)
 	if err != nil {
 		return err
 	}

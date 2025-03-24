@@ -73,7 +73,7 @@ func TestGetPredefinedIPRanges(t *testing.T) {
 			}
 
 			// 创建用于测试的IPAcl
-			acl, err := NewIPAcl(ranges, types.Blacklist)
+			acl, err := NewIPACL(ranges, types.Blacklist)
 			if err != nil {
 				t.Fatalf("无法创建测试ACL: %v", err)
 			}
@@ -98,7 +98,7 @@ func TestGetPredefinedIPRanges(t *testing.T) {
 func TestAddPredefinedSetToExistingACL(t *testing.T) {
 	// 创建一个带有单个IP的ACL
 	initialIP := "1.2.3.4"
-	acl, err := NewIPAcl([]string{initialIP}, types.Blacklist)
+	acl, err := NewIPACL([]string{initialIP}, types.Blacklist)
 	if err != nil {
 		t.Fatalf("无法创建初始ACL: %v", err)
 	}
@@ -142,8 +142,8 @@ func TestAddPredefinedSetToExistingACL(t *testing.T) {
 	}
 }
 
-// TestNewIPAclWithDefaultsAndOptions 测试使用预定义集合创建新ACL
-func TestNewIPAclWithDefaultsAndOptions(t *testing.T) {
+// TestNewIPACLWithDefaultsAndOptions 测试使用预定义集合创建新ACL
+func TestNewIPACLWithDefaultsAndOptions(t *testing.T) {
 	tests := []struct {
 		name           string
 		ipRanges       []string
@@ -216,11 +216,11 @@ func TestNewIPAclWithDefaultsAndOptions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// 创建ACL
-			acl, err := NewIPAclWithDefaults(tt.ipRanges, tt.listType, tt.predefinedSets, tt.allowSets)
+			acl, err := NewIPACLWithDefaults(tt.ipRanges, tt.listType, tt.predefinedSets, tt.allowSets)
 
 			// 验证错误情况
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewIPAclWithDefaults() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewIPACLWithDefaults() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
@@ -254,7 +254,7 @@ func TestNewIPAclWithDefaultsAndOptions(t *testing.T) {
 // TestAddMultiplePredefinedSets 测试添加多个预定义集合
 func TestAddMultiplePredefinedSets(t *testing.T) {
 	// 创建一个空的ACL
-	acl, err := NewIPAcl([]string{}, types.Blacklist)
+	acl, err := NewIPACL([]string{}, types.Blacklist)
 	if err != nil {
 		t.Fatalf("无法创建初始ACL: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestIPv6Support(t *testing.T) {
 		"::1/128",       // IPv6回环地址
 	}
 
-	acl, err := NewIPAcl(ipRanges, types.Blacklist)
+	acl, err := NewIPACL(ipRanges, types.Blacklist)
 	if err != nil {
 		t.Fatalf("无法创建ACL: %v", err)
 	}

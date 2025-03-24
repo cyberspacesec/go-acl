@@ -9,8 +9,8 @@ import (
 	"github.com/cyberspacesec/go-acl/pkg/types"
 )
 
-// TestNewDomainAcl 测试创建域名访问控制列表
-func TestNewDomainAcl(t *testing.T) {
+// TestNewDomainACL 测试创建域名访问控制列表
+func TestNewDomainACL(t *testing.T) {
 	tests := []struct {
 		name              string
 		domains           []string
@@ -103,7 +103,7 @@ func TestNewDomainAcl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl := NewDomainAcl(tt.domains, tt.listType, tt.includeSubdomains)
+			acl := NewDomainACL(tt.domains, tt.listType, tt.includeSubdomains)
 
 			// 检查列表类型是否正确
 			if acl.GetListType() != tt.listType {
@@ -122,8 +122,8 @@ func TestNewDomainAcl(t *testing.T) {
 	}
 }
 
-// TestDomainAcl_Add 测试添加域名到访问控制列表
-func TestDomainAcl_Add(t *testing.T) {
+// TestDomainACL_Add 测试添加域名到访问控制列表
+func TestDomainACL_Add(t *testing.T) {
 	tests := []struct {
 		name              string
 		initialDomains    []string
@@ -184,7 +184,7 @@ func TestDomainAcl_Add(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl := NewDomainAcl(tt.initialDomains, types.Blacklist, tt.includeSubdomains)
+			acl := NewDomainACL(tt.initialDomains, types.Blacklist, tt.includeSubdomains)
 			acl.Add(tt.domainsToAdd...)
 
 			// 验证域名列表
@@ -195,8 +195,8 @@ func TestDomainAcl_Add(t *testing.T) {
 	}
 }
 
-// TestDomainAcl_Remove 测试从访问控制列表移除域名
-func TestDomainAcl_Remove(t *testing.T) {
+// TestDomainACL_Remove 测试从访问控制列表移除域名
+func TestDomainACL_Remove(t *testing.T) {
 	tests := []struct {
 		name           string
 		initialDomains []string
@@ -276,7 +276,7 @@ func TestDomainAcl_Remove(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// 创建 ACL 实例并添加初始域名
-			acl := NewDomainAcl(tt.initialDomains, tt.listType, true)
+			acl := NewDomainACL(tt.initialDomains, tt.listType, true)
 
 			// 执行测试的操作
 			var lastErr error
@@ -312,8 +312,8 @@ func TestDomainAcl_Remove(t *testing.T) {
 	}
 }
 
-// TestDomainAcl_GetDomains 测试获取域名列表
-func TestDomainAcl_GetDomains(t *testing.T) {
+// TestDomainACL_GetDomains 测试获取域名列表
+func TestDomainACL_GetDomains(t *testing.T) {
 	tests := []struct {
 		name           string
 		domains        []string
@@ -333,7 +333,7 @@ func TestDomainAcl_GetDomains(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl := NewDomainAcl(tt.domains, types.Blacklist, false)
+			acl := NewDomainACL(tt.domains, types.Blacklist, false)
 			got := acl.GetDomains()
 
 			// 检查返回的域名列表
@@ -352,8 +352,8 @@ func TestDomainAcl_GetDomains(t *testing.T) {
 	}
 }
 
-// TestDomainAcl_GetListType 测试获取列表类型
-func TestDomainAcl_GetListType(t *testing.T) {
+// TestDomainACL_GetListType 测试获取列表类型
+func TestDomainACL_GetListType(t *testing.T) {
 	tests := []struct {
 		name           string
 		listType       types.ListType
@@ -373,7 +373,7 @@ func TestDomainAcl_GetListType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl := NewDomainAcl([]string{}, tt.listType, false)
+			acl := NewDomainACL([]string{}, tt.listType, false)
 			got := acl.GetListType()
 
 			if got != tt.expectedReturn {
@@ -383,8 +383,8 @@ func TestDomainAcl_GetListType(t *testing.T) {
 	}
 }
 
-// TestDomainAcl_Check 测试检查域名访问权限
-func TestDomainAcl_Check(t *testing.T) {
+// TestDomainACL_Check 测试检查域名访问权限
+func TestDomainACL_Check(t *testing.T) {
 	tests := []struct {
 		name              string
 		domains           []string
@@ -520,7 +520,7 @@ func TestDomainAcl_Check(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl := NewDomainAcl(tt.domains, tt.listType, tt.includeSubdomains)
+			acl := NewDomainACL(tt.domains, tt.listType, tt.includeSubdomains)
 			perm, err := acl.Check(tt.domainToCheck)
 
 			// 检查错误
@@ -536,8 +536,8 @@ func TestDomainAcl_Check(t *testing.T) {
 	}
 }
 
-// TestDomainAcl_matchDomain 测试内部域名匹配功能
-func TestDomainAcl_matchDomain(t *testing.T) {
+// TestDomainACL_matchDomain 测试内部域名匹配功能
+func TestDomainACL_matchDomain(t *testing.T) {
 	tests := []struct {
 		name              string
 		domains           []string
@@ -598,7 +598,7 @@ func TestDomainAcl_matchDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl := &DomainAcl{
+			acl := &DomainACL{
 				domains:           tt.domains,
 				listType:          types.Blacklist, // 列表类型对匹配功能没有影响
 				includeSubdomains: tt.includeSubdomains,
@@ -910,7 +910,7 @@ func TestComplexSubdomainMatching(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl := &DomainAcl{
+			acl := &DomainACL{
 				domains:           tt.domains,
 				listType:          types.Blacklist, // 列表类型对匹配功能没有影响
 				includeSubdomains: tt.includeSubdomains,
@@ -983,8 +983,8 @@ func TestEdgeCaseDomains(t *testing.T) {
 	}
 }
 
-// TestDomainAcl_CheckEdgeCases 测试Check方法的边缘情况
-func TestDomainAcl_CheckEdgeCases(t *testing.T) {
+// TestDomainACL_CheckEdgeCases 测试Check方法的边缘情况
+func TestDomainACL_CheckEdgeCases(t *testing.T) {
 	tests := []struct {
 		name              string
 		domains           []string
@@ -1052,7 +1052,7 @@ func TestDomainAcl_CheckEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl := NewDomainAcl(tt.domains, tt.listType, tt.includeSubdomains)
+			acl := NewDomainACL(tt.domains, tt.listType, tt.includeSubdomains)
 			perm, err := acl.Check(tt.domainToCheck)
 
 			// 检查错误

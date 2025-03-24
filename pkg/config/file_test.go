@@ -120,8 +120,8 @@ func createTestFile(t *testing.T, path, content string) {
 	}
 }
 
-// TestReadIPList 测试从文件读取IP列表的函数
-func TestReadIPList(t *testing.T) {
+// TestReadIPACL 测试从文件读取IP列表的函数
+func TestReadIPACL(t *testing.T) {
 	setUp(t)
 	defer tearDown(t, testDir)
 
@@ -179,7 +179,7 @@ func TestReadIPList(t *testing.T) {
 				t.Skip(tt.skipReason)
 			}
 
-			ips, err := ReadIPList(tt.filePath)
+			ips, err := ReadIPACL(tt.filePath)
 
 			// 特殊处理权限测试
 			if tt.name == "读取无权限文件" {
@@ -209,8 +209,8 @@ func TestReadIPList(t *testing.T) {
 	}
 }
 
-// TestSaveIPList 测试保存IP列表到文件的函数
-func TestSaveIPList(t *testing.T) {
+// TestSaveIPACL 测试保存IP列表到文件的函数
+func TestSaveIPACL(t *testing.T) {
 	setUp(t)
 	defer tearDown(t, testDir)
 
@@ -290,7 +290,7 @@ func TestSaveIPList(t *testing.T) {
 				t.Skip(tt.skipReason)
 			}
 
-			err := SaveIPList(tt.filePath, tt.ipList, tt.header, tt.overwrite)
+			err := SaveIPACLWithHeader(tt.filePath, tt.ipList, tt.header, tt.overwrite)
 
 			// 特殊处理无效路径测试
 			if tt.name == "保存到无效路径" {
@@ -334,7 +334,7 @@ func TestSaveIPList(t *testing.T) {
 				}
 
 				// 检查是否包含时间戳
-				if !strings.Contains(string(content), "Generated at:") {
+				if !strings.Contains(string(content), "Generated:") {
 					t.Errorf("文件内容中未找到时间戳")
 				}
 
@@ -354,20 +354,20 @@ func TestReadThenSave(t *testing.T) {
 
 	// 1. 首先读取有效的IP文件
 	sourcePath := filepath.Join(testDir, validIPFile)
-	ips, err := ReadIPList(sourcePath)
+	ips, err := ReadIPACL(sourcePath)
 	if err != nil {
 		t.Fatalf("读取文件失败: %v", err)
 	}
 
 	// 2. 然后将读取的内容保存到新文件
 	destPath := filepath.Join(testDir, "read_then_save.txt")
-	err = SaveIPList(destPath, ips, "读取后保存测试", false)
+	err = SaveIPACLWithHeader(destPath, ips, "读取后保存测试", false)
 	if err != nil {
 		t.Fatalf("保存文件失败: %v", err)
 	}
 
 	// 3. 再次读取新文件，确认内容正确
-	newIPs, err := ReadIPList(destPath)
+	newIPs, err := ReadIPACL(destPath)
 	if err != nil {
 		t.Fatalf("读取保存的文件失败: %v", err)
 	}
@@ -386,13 +386,13 @@ func TestEdgeCases(t *testing.T) {
 	// 测试保存空IP列表
 	t.Run("保存空IP列表", func(t *testing.T) {
 		emptyListPath := filepath.Join(testDir, "empty_list.txt")
-		err := SaveIPList(emptyListPath, []string{}, "空IP列表测试", false)
+		err := SaveIPACLWithHeader(emptyListPath, []string{}, "空IP列表测试", false)
 		if err != nil {
 			t.Errorf("保存空IP列表失败: %v", err)
 		}
 
 		// 尝试读取保存的空IP列表
-		ips, err := ReadIPList(emptyListPath)
+		ips, err := ReadIPACL(emptyListPath)
 		if err != ErrEmptyFile {
 			t.Errorf("期望错误 %v, 但得到 %v", ErrEmptyFile, err)
 		}
@@ -412,13 +412,13 @@ func TestEdgeCases(t *testing.T) {
 			"172.16.0.0/12",
 			"fc00::/7",
 		}
-		err := SaveIPList(complexListPath, complexIPs, "复杂IP列表测试", false)
+		err := SaveIPACLWithHeader(complexListPath, complexIPs, "复杂IP列表测试", false)
 		if err != nil {
 			t.Errorf("保存复杂IP列表失败: %v", err)
 		}
 
 		// 读取并验证
-		ips, err := ReadIPList(complexListPath)
+		ips, err := ReadIPACL(complexListPath)
 		if err != nil {
 			t.Errorf("读取复杂IP列表失败: %v", err)
 		}
@@ -432,25 +432,25 @@ func TestEdgeCases(t *testing.T) {
 		overwritePath := filepath.Join(testDir, "overwrite_test.txt")
 
 		// 第一次写入
-		err := SaveIPList(overwritePath, []string{"192.168.1.1"}, "第一次写入", false)
+		err := SaveIPACLWithHeader(overwritePath, []string{"192.168.1.1"}, "第一次写入", false)
 		if err != nil {
 			t.Errorf("第一次写入失败: %v", err)
 		}
 
 		// 第二次写入，不覆盖，应该失败
-		err = SaveIPList(overwritePath, []string{"10.0.0.1"}, "第二次写入", false)
+		err = SaveIPACLWithHeader(overwritePath, []string{"10.0.0.1"}, "第二次写入", false)
 		if err != ErrFileExists {
 			t.Errorf("期望错误 %v, 但得到 %v", ErrFileExists, err)
 		}
 
 		// 第三次写入，覆盖，应该成功
-		err = SaveIPList(overwritePath, []string{"8.8.8.8"}, "第三次写入", true)
+		err = SaveIPACLWithHeader(overwritePath, []string{"8.8.8.8"}, "第三次写入", true)
 		if err != nil {
 			t.Errorf("第三次写入失败: %v", err)
 		}
 
 		// 读取并验证是第三次的内容
-		ips, err := ReadIPList(overwritePath)
+		ips, err := ReadIPACL(overwritePath)
 		if err != nil {
 			t.Errorf("读取覆盖文件失败: %v", err)
 		}
@@ -460,8 +460,8 @@ func TestEdgeCases(t *testing.T) {
 	})
 }
 
-// TestReadIPListErrorHandling 测试ReadIPList函数的错误处理
-func TestReadIPListErrorHandling(t *testing.T) {
+// TestReadIPACLErrorHandling 测试ReadIPACL函数的错误处理
+func TestReadIPACLErrorHandling(t *testing.T) {
 	tmpDir := setUp(t)
 	defer tearDown(t, tmpDir)
 
@@ -479,23 +479,23 @@ func TestReadIPListErrorHandling(t *testing.T) {
 	file.Close()
 
 	// 尝试读取
-	_, err = ReadIPList(noReadPath)
+	_, err = ReadIPACL(noReadPath)
 	if err == nil {
-		t.Errorf("对于无读取权限的文件，ReadIPList应返回错误")
+		t.Errorf("对于无读取权限的文件，ReadIPACL应返回错误")
 	}
 
 	// 测试Scanner错误（通常需要一个特殊的Reader来模拟，这里简单测试）
 	// 大多数情况下，Scanner错误在正常文件读取中很难触发
 }
 
-// TestSaveIPListErrorHandling 测试SaveIPList函数的错误处理
-func TestSaveIPListErrorHandling(t *testing.T) {
+// TestSaveIPACLErrorHandling 测试SaveIPACL函数的错误处理
+func TestSaveIPACLErrorHandling(t *testing.T) {
 	tmpDir := setUp(t)
 	defer tearDown(t, tmpDir)
 
 	// 测试创建文件的操作系统错误
 	invalidPath := filepath.Join("/nonexistent", "file.txt")
-	err := SaveIPList(invalidPath, []string{"192.168.1.1"}, "测试", true)
+	err := SaveIPACLWithHeader(invalidPath, []string{"192.168.1.1"}, "测试", true)
 	if err == nil {
 		t.Errorf("无效路径应返回错误")
 	}
@@ -508,7 +508,7 @@ func TestSaveIPListErrorHandling(t *testing.T) {
 	}
 
 	invalidFilePath := filepath.Join(readOnlyPath, "invalid.txt")
-	err = SaveIPList(invalidFilePath, []string{"192.168.1.1"}, "测试", true)
+	err = SaveIPACLWithHeader(invalidFilePath, []string{"192.168.1.1"}, "测试", true)
 	if err == nil {
 		t.Errorf("写入只读目录应返回错误")
 	}

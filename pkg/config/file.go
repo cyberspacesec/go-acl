@@ -3,7 +3,6 @@ package config
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -21,7 +20,7 @@ var (
 	ErrFilePermission = errors.New("文件权限错误")
 )
 
-// ReadIPList 从文件中读取IP/CIDR列表
+// ReadIPACL 从文件中读取IP/CIDR列表
 //
 // 参数:
 //   - filePath: 要读取的文件路径
@@ -52,7 +51,7 @@ var (
 // 示例:
 //
 //	// 读取IP列表
-//	ips, err := config.ReadIPList("./blacklist.txt")
+//	ips, err := config.ReadIPACL("./blacklist.txt")
 //	if err != nil {
 //	    if errors.Is(err, config.ErrFileNotFound) {
 //	        log.Println("指定的IP列表文件不存在")
@@ -68,7 +67,7 @@ var (
 //	for _, ip := range ips {
 //	    fmt.Println(ip)
 //	}
-func ReadIPList(filePath string) ([]string, error) {
+func ReadIPACL(filePath string) ([]string, error) {
 	// 检查文件是否存在
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return nil, ErrFileNotFound
@@ -119,7 +118,7 @@ func ReadIPList(filePath string) ([]string, error) {
 	return ips, nil
 }
 
-// SaveIPList 将IP/CIDR列表保存到文件
+// SaveIPACLWithHeader 将IP/CIDR列表保存到文件
 //
 // 参数:
 //   - filePath: 要保存的文件路径
@@ -147,35 +146,33 @@ func ReadIPList(filePath string) ([]string, error) {
 //
 //	// 保存IP黑名单到文件
 //	ips := []string{"192.168.1.1", "10.0.0.0/8", "2001:db8::/32"}
-//	err := config.SaveIPList(
+//	err := config.SaveIPACLWithHeader(
 //	    "./my_blacklist.txt",            // 保存路径
 //	    ips,                             // IP列表
-//	    "IP Blacklist - Blocked IPs",    // 文件标题
-//	    false                            // 不覆盖已存在的文件
+//	    "IP Blacklist - Generated List", // 文件头
+//	    true,                           // 允许覆盖
 //	)
-//
 //	if err != nil {
 //	    if errors.Is(err, config.ErrFileExists) {
-//	        log.Println("文件已存在，未覆盖")
+//	        log.Println("文件已存在且不允许覆盖")
 //	    } else {
 //	        log.Printf("保存IP列表失败: %v", err)
 //	    }
 //	    return
 //	}
-//
-//	log.Println("成功保存IP列表")
-func SaveIPList(filePath string, ipList []string, header string, overwrite bool) error {
+//	fmt.Println("IP列表已成功保存")
+func SaveIPACLWithHeader(filePath string, ipList []string, header string, overwrite bool) error {
 	// 检查文件是否已存在
-	if !overwrite {
-		if _, err := os.Stat(filePath); err == nil {
-			return ErrFileExists
-		}
+	if _, err := os.Stat(filePath); err == nil && !overwrite {
+		return ErrFileExists
+	} else if err != nil && !os.IsNotExist(err) {
+		// 其他非"不存在"的错误
+		return err
 	}
 
 	// 创建或打开文件
 	file, err := os.Create(filePath)
 	if err != nil {
-		// 检查是否为权限问题
 		if os.IsPermission(err) {
 			return ErrFilePermission
 		}
@@ -185,29 +182,45 @@ func SaveIPList(filePath string, ipList []string, header string, overwrite bool)
 
 	writer := bufio.NewWriter(file)
 
-	// 写入标题
+	// 写入头部信息
 	if header != "" {
-		_, err = writer.WriteString("# " + header + "\n")
-		if err != nil {
+		if _, err := writer.WriteString("# " + header + "\n"); err != nil {
 			return err
 		}
 	}
 
 	// 写入生成时间
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	_, err = writer.WriteString(fmt.Sprintf("# Generated at: %s\n", timestamp))
-	if err != nil {
+	generatedTime := time.Now().Format("2006-01-02 15:04:05")
+	if _, err := writer.WriteString("# Generated: " + generatedTime + "\n"); err != nil {
 		return err
 	}
 
 	// 写入IP列表
 	for _, ip := range ipList {
-		_, err = writer.WriteString(ip + "\n")
-		if err != nil {
+		if _, err := writer.WriteString(ip + "\n"); err != nil {
 			return err
 		}
 	}
 
-	// 刷新缓冲区
 	return writer.Flush()
+}
+
+// SaveIPACL 将IP/CIDR列表保存到文件，使用默认头部
+//
+// 这是SaveIPACLWithHeader的简化版本，使用默认的头部信息
+//
+// 参数:
+//   - filePath: 要保存的文件路径
+//   - ipList: 要保存的IP/CIDR列表
+//   - overwrite: 是否覆盖已存在的文件
+//
+// 返回:
+//   - error: 可能的错误
+//
+// 示例:
+//
+//	ips := []string{"192.168.1.1", "10.0.0.0/8"}
+//	err := config.SaveIPACL("./list.txt", ips, true)
+func SaveIPACL(filePath string, ipList []string, overwrite bool) error {
+	return SaveIPACLWithHeader(filePath, ipList, "IP Access Control List", overwrite)
 }

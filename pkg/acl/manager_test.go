@@ -44,63 +44,63 @@ func TestNewManager(t *testing.T) {
 	}
 }
 
-// TestSetDomainAcl 测试设置域名ACL
-func TestSetDomainAcl(t *testing.T) {
+// TestSetDomainACL 测试设置域名ACL
+func TestSetDomainACL(t *testing.T) {
 	manager := NewManager()
 	domains := []string{"example.com", "test.org"}
 
 	// 设置域名ACL
-	manager.SetDomainAcl(domains, types.Blacklist, true)
+	manager.SetDomainACL(domains, types.Blacklist, true)
 
 	// 验证设置成功
 	gotDomains := manager.GetDomains()
-	if !reflect.DeepEqual(domains, gotDomains) {
-		t.Errorf("GetDomains() = %v, 期望 %v", gotDomains, domains)
+	if !reflect.DeepEqual(gotDomains, domains) {
+		t.Errorf("域名列表不匹配，got %v, want %v", gotDomains, domains)
 	}
 
-	listType, err := manager.GetDomainAclType()
+	listType, err := manager.GetDomainACLType()
 	if err != nil {
-		t.Errorf("GetDomainAclType() 返回错误: %v", err)
+		t.Errorf("GetDomainACLType() 返回错误: %v", err)
 	}
 	if listType != types.Blacklist {
-		t.Errorf("GetDomainAclType() = %v, 期望 %v", listType, types.Blacklist)
+		t.Errorf("列表类型不匹配，got %v, want %v", listType, types.Blacklist)
 	}
 }
 
-// TestSetIPAcl 测试设置IP ACL
-func TestSetIPAcl(t *testing.T) {
+// TestSetIPACL 测试设置IP ACL
+func TestSetIPACL(t *testing.T) {
 	manager := NewManager()
 	ipRanges := []string{"192.168.1.1", "10.0.0.0/8"}
 
 	// 设置IP ACL
-	err := manager.SetIPAcl(ipRanges, types.Blacklist)
+	err := manager.SetIPACL(ipRanges, types.Blacklist)
 	if err != nil {
-		t.Errorf("SetIPAcl() 返回错误: %v", err)
+		t.Errorf("SetIPACL() 返回错误: %v", err)
 	}
 
 	// 验证设置成功
 	gotIPRanges := manager.GetIPRanges()
-	if !reflect.DeepEqual(ipRanges, gotIPRanges) {
-		t.Errorf("GetIPRanges() = %v, 期望 %v", gotIPRanges, ipRanges)
+	if !reflect.DeepEqual(gotIPRanges, ipRanges) {
+		t.Errorf("IP列表不匹配，got %v, want %v", gotIPRanges, ipRanges)
 	}
 
-	listType, err := manager.GetIPAclType()
+	listType, err := manager.GetIPACLType()
 	if err != nil {
-		t.Errorf("GetIPAclType() 返回错误: %v", err)
+		t.Errorf("GetIPACLType() 返回错误: %v", err)
 	}
 	if listType != types.Blacklist {
-		t.Errorf("GetIPAclType() = %v, 期望 %v", listType, types.Blacklist)
+		t.Errorf("列表类型不匹配，got %v, want %v", listType, types.Blacklist)
 	}
 
 	// 测试无效IP
-	err = manager.SetIPAcl([]string{"invalid-ip"}, types.Blacklist)
+	err = manager.SetIPACL([]string{"invalid-ip"}, types.Blacklist)
 	if err == nil {
-		t.Error("SetIPAcl() 对于无效IP应返回错误")
+		t.Error("SetIPACL() 对于无效IP应返回错误")
 	}
 }
 
-// TestSetIPAclFromFile 测试从文件设置IP ACL
-func TestSetIPAclFromFile(t *testing.T) {
+// TestSetIPACLFromFile 测试从文件设置IP ACL
+func TestSetIPACLFromFile(t *testing.T) {
 	tempDir := setupTestDir(t)
 	defer cleanupTestDir(t, tempDir)
 
@@ -112,20 +112,20 @@ func TestSetIPAclFromFile(t *testing.T) {
 	manager := NewManager()
 
 	// 从文件设置IP ACL
-	err := manager.SetIPAclFromFile(testFile, types.Blacklist)
+	err := manager.SetIPACLFromFile(testFile, types.Blacklist)
 	if err != nil {
-		t.Errorf("SetIPAclFromFile() 返回错误: %v", err)
+		t.Errorf("SetIPACLFromFile() 返回错误: %v", err)
 	}
 
 	// 测试不存在的文件
-	err = manager.SetIPAclFromFile("/nonexistent/file.txt", types.Blacklist)
+	err = manager.SetIPACLFromFile("/nonexistent/file.txt", types.Blacklist)
 	if err == nil {
-		t.Error("SetIPAclFromFile() 对于不存在的文件应返回错误")
+		t.Error("SetIPACLFromFile() 对于不存在的文件应返回错误")
 	}
 }
 
-// TestSaveIPAclToFile 测试保存IP ACL到文件
-func TestSaveIPAclToFile(t *testing.T) {
+// TestSaveIPACLToFile 测试保存IP ACL到文件
+func TestSaveIPACLToFile(t *testing.T) {
 	tempDir := setupTestDir(t)
 	defer cleanupTestDir(t, tempDir)
 
@@ -133,16 +133,16 @@ func TestSaveIPAclToFile(t *testing.T) {
 	ipRanges := []string{"192.168.1.1", "10.0.0.0/8"}
 
 	// 先设置IP ACL
-	err := manager.SetIPAcl(ipRanges, types.Blacklist)
+	err := manager.SetIPACL(ipRanges, types.Blacklist)
 	if err != nil {
-		t.Fatalf("SetIPAcl() 返回错误: %v", err)
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
 	}
 
 	// 保存到文件
 	testFile := filepath.Join(tempDir, "saved_ips.txt")
-	err = manager.SaveIPAclToFile(testFile, true)
+	err = manager.SaveIPACLToFile(testFile, true)
 	if err != nil {
-		t.Errorf("SaveIPAclToFile() 返回错误: %v", err)
+		t.Errorf("SaveIPACLToFile() 返回错误: %v", err)
 	}
 
 	// 检查文件是否存在
@@ -151,21 +151,21 @@ func TestSaveIPAclToFile(t *testing.T) {
 	}
 
 	// 测试不覆盖
-	err = manager.SaveIPAclToFile(testFile, false)
+	err = manager.SaveIPACLToFile(testFile, false)
 	if err == nil {
-		t.Error("SaveIPAclToFile() 对于已存在的文件且overwrite=false应返回错误")
+		t.Error("SaveIPACLToFile() 对于已存在的文件且overwrite=false应返回错误")
 	}
 
 	// 测试无IP ACL的情况
 	manager = NewManager()
-	err = manager.SaveIPAclToFile(testFile, true)
+	err = manager.SaveIPACLToFile(testFile, true)
 	if err == nil {
-		t.Error("SaveIPAclToFile() 在没有设置IP ACL时应返回错误")
+		t.Error("SaveIPACLToFile() 在没有设置IP ACL时应返回错误")
 	}
 }
 
-// TestSaveIPAclToFileWithOverwrite 测试带覆盖的保存IP ACL
-func TestSaveIPAclToFileWithOverwrite(t *testing.T) {
+// TestSaveIPACLToFileWithOverwrite 测试带覆盖的保存IP ACL
+func TestSaveIPACLToFileWithOverwrite(t *testing.T) {
 	tempDir := setupTestDir(t)
 	defer cleanupTestDir(t, tempDir)
 
@@ -173,9 +173,9 @@ func TestSaveIPAclToFileWithOverwrite(t *testing.T) {
 	ipRanges := []string{"192.168.1.1"}
 
 	// 先设置IP ACL
-	err := manager.SetIPAcl(ipRanges, types.Blacklist)
+	err := manager.SetIPACL(ipRanges, types.Blacklist)
 	if err != nil {
-		t.Fatalf("SetIPAcl() 返回错误: %v", err)
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
 	}
 
 	// 保存到文件
@@ -183,9 +183,9 @@ func TestSaveIPAclToFileWithOverwrite(t *testing.T) {
 	createTestFile(t, testFile, "original content")
 
 	// 使用覆盖模式保存
-	err = manager.SaveIPAclToFileWithOverwrite(testFile)
+	err = manager.SaveIPACLToFileWithOverwrite(testFile)
 	if err != nil {
-		t.Errorf("SaveIPAclToFileWithOverwrite() 返回错误: %v", err)
+		t.Errorf("SaveIPACLToFileWithOverwrite() 返回错误: %v", err)
 	}
 
 	// 检查文件内容是否被覆盖
@@ -215,9 +215,9 @@ func TestAddIPFromFile(t *testing.T) {
 	initialIPs := []string{"192.168.1.1"}
 
 	// 先设置初始IP ACL
-	err := manager.SetIPAcl(initialIPs, types.Blacklist)
+	err := manager.SetIPACL(initialIPs, types.Blacklist)
 	if err != nil {
-		t.Fatalf("SetIPAcl() 返回错误: %v", err)
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
 	}
 
 	// 从文件添加IP
@@ -241,23 +241,23 @@ func TestAddIPFromFile(t *testing.T) {
 	}
 
 	// 测试不存在的文件
-	manager.SetIPAcl(initialIPs, types.Blacklist)
+	manager.SetIPACL(initialIPs, types.Blacklist)
 	err = manager.AddIPFromFile("/nonexistent/file.txt")
 	if err == nil {
 		t.Error("AddIPFromFile() 对于不存在的文件应返回错误")
 	}
 }
 
-// TestSetIPAclWithDefaults 测试设置带预定义集合的IP ACL
-func TestSetIPAclWithDefaults(t *testing.T) {
+// TestSetIPACLWithDefaults 测试设置带预定义集合的IP ACL
+func TestSetIPACLWithDefaults(t *testing.T) {
 	manager := NewManager()
 	ipRanges := []string{"192.168.1.1"}
 	predefinedSets := []ip.PredefinedSet{ip.PrivateNetworks, ip.LoopbackNetworks}
 
 	// 设置带预定义集合的IP ACL
-	err := manager.SetIPAclWithDefaults(ipRanges, types.Blacklist, predefinedSets, false)
+	err := manager.SetIPACLWithDefaults(ipRanges, types.Blacklist, predefinedSets, false)
 	if err != nil {
-		t.Errorf("SetIPAclWithDefaults() 返回错误: %v", err)
+		t.Errorf("SetIPACLWithDefaults() 返回错误: %v", err)
 	}
 
 	// 验证IP范围包含预定义集合
@@ -267,15 +267,15 @@ func TestSetIPAclWithDefaults(t *testing.T) {
 	}
 
 	// 测试无效IP
-	err = manager.SetIPAclWithDefaults([]string{"invalid-ip"}, types.Blacklist, predefinedSets, false)
+	err = manager.SetIPACLWithDefaults([]string{"invalid-ip"}, types.Blacklist, predefinedSets, false)
 	if err == nil {
-		t.Error("SetIPAclWithDefaults() 对于无效IP应返回错误")
+		t.Error("SetIPACLWithDefaults() 对于无效IP应返回错误")
 	}
 
 	// 测试无效预定义集合
-	err = manager.SetIPAclWithDefaults(ipRanges, types.Blacklist, []ip.PredefinedSet{ip.PredefinedSet("invalid_set")}, false)
+	err = manager.SetIPACLWithDefaults(ipRanges, types.Blacklist, []ip.PredefinedSet{ip.PredefinedSet("invalid_set")}, false)
 	if err == nil {
-		t.Error("SetIPAclWithDefaults() 对于无效预定义集合应返回错误")
+		t.Error("SetIPACLWithDefaults() 对于无效预定义集合应返回错误")
 	}
 }
 
@@ -285,9 +285,9 @@ func TestAddIP(t *testing.T) {
 	initialIPs := []string{"192.168.1.1"}
 
 	// 先设置初始IP ACL
-	err := manager.SetIPAcl(initialIPs, types.Blacklist)
+	err := manager.SetIPACL(initialIPs, types.Blacklist)
 	if err != nil {
-		t.Fatalf("SetIPAcl() 返回错误: %v", err)
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
 	}
 
 	// 添加IP
@@ -311,7 +311,7 @@ func TestAddIP(t *testing.T) {
 	}
 
 	// 测试无效IP
-	manager.SetIPAcl(initialIPs, types.Blacklist)
+	manager.SetIPACL(initialIPs, types.Blacklist)
 	err = manager.AddIP("invalid-ip")
 	if err == nil {
 		t.Error("AddIP() 对于无效IP应返回错误")
@@ -324,9 +324,9 @@ func TestRemoveIP(t *testing.T) {
 	initialIPs := []string{"192.168.1.1", "10.0.0.1", "172.16.0.1"}
 
 	// 先设置初始IP ACL
-	err := manager.SetIPAcl(initialIPs, types.Blacklist)
+	err := manager.SetIPACL(initialIPs, types.Blacklist)
 	if err != nil {
-		t.Fatalf("SetIPAcl() 返回错误: %v", err)
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
 	}
 
 	// 移除IP
@@ -350,7 +350,7 @@ func TestRemoveIP(t *testing.T) {
 	}
 
 	// 测试不存在的IP
-	manager.SetIPAcl(initialIPs, types.Blacklist)
+	manager.SetIPACL(initialIPs, types.Blacklist)
 	err = manager.RemoveIP("8.8.8.8")
 	if err == nil {
 		t.Error("RemoveIP() 对于不存在的IP应返回错误")
@@ -363,9 +363,9 @@ func TestAddPredefinedIPSet(t *testing.T) {
 	initialIPs := []string{"192.168.1.1"}
 
 	// 先设置初始IP ACL
-	err := manager.SetIPAcl(initialIPs, types.Blacklist)
+	err := manager.SetIPACL(initialIPs, types.Blacklist)
 	if err != nil {
-		t.Fatalf("SetIPAcl() 返回错误: %v", err)
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
 	}
 
 	// 添加预定义集合
@@ -388,7 +388,7 @@ func TestAddPredefinedIPSet(t *testing.T) {
 	}
 
 	// 测试无效预定义集合
-	manager.SetIPAcl(initialIPs, types.Blacklist)
+	manager.SetIPACL(initialIPs, types.Blacklist)
 	err = manager.AddPredefinedIPSet(ip.PredefinedSet("invalid_set"), false)
 	if err == nil {
 		t.Error("AddPredefinedIPSet() 对于无效预定义集合应返回错误")
@@ -401,9 +401,9 @@ func TestAddAllSpecialNetworks(t *testing.T) {
 	initialIPs := []string{"192.168.1.1"}
 
 	// 先设置初始IP ACL
-	err := manager.SetIPAcl(initialIPs, types.Blacklist)
+	err := manager.SetIPACL(initialIPs, types.Blacklist)
 	if err != nil {
-		t.Fatalf("SetIPAcl() 返回错误: %v", err)
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
 	}
 
 	// 添加所有特殊网络
@@ -432,7 +432,7 @@ func TestCheckDomain(t *testing.T) {
 	domains := []string{"example.com"}
 
 	// 先设置域名ACL
-	manager.SetDomainAcl(domains, types.Blacklist, true)
+	manager.SetDomainACL(domains, types.Blacklist, true)
 
 	// 检查域名
 	tests := []struct {
@@ -494,9 +494,9 @@ func TestCheckIP(t *testing.T) {
 	ips := []string{"192.168.1.1", "10.0.0.0/8"}
 
 	// 先设置IP ACL
-	err := manager.SetIPAcl(ips, types.Blacklist)
+	err := manager.SetIPACL(ips, types.Blacklist)
 	if err != nil {
-		t.Fatalf("SetIPAcl() 返回错误: %v", err)
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
 	}
 
 	// 检查IP
@@ -559,7 +559,7 @@ func TestAddDomain(t *testing.T) {
 	domains := []string{"example.com"}
 
 	// 先设置域名ACL
-	manager.SetDomainAcl(domains, types.Blacklist, true)
+	manager.SetDomainACL(domains, types.Blacklist, true)
 
 	// 添加域名
 	err := manager.AddDomain("test.org", "another.com")
@@ -588,7 +588,7 @@ func TestRemoveDomain(t *testing.T) {
 	domains := []string{"example.com", "test.org", "another.com"}
 
 	// 先设置域名ACL
-	manager.SetDomainAcl(domains, types.Blacklist, true)
+	manager.SetDomainACL(domains, types.Blacklist, true)
 
 	// 移除域名
 	err := manager.RemoveDomain("test.org")
@@ -611,7 +611,7 @@ func TestRemoveDomain(t *testing.T) {
 	}
 
 	// 测试不存在的域名
-	manager.SetDomainAcl(domains, types.Blacklist, true)
+	manager.SetDomainACL(domains, types.Blacklist, true)
 	err = manager.RemoveDomain("nonexistent.com")
 	if err == nil {
 		t.Error("RemoveDomain() 对于不存在的域名应返回错误")
@@ -623,24 +623,24 @@ func TestReset(t *testing.T) {
 	manager := NewManager()
 
 	// 设置域名和IP ACL
-	manager.SetDomainAcl([]string{"example.com"}, types.Blacklist, true)
-	err := manager.SetIPAcl([]string{"192.168.1.1"}, types.Blacklist)
+	manager.SetDomainACL([]string{"example.com"}, types.Blacklist, true)
+	err := manager.SetIPACL([]string{"192.168.1.1"}, types.Blacklist)
 	if err != nil {
-		t.Fatalf("SetIPAcl() 返回错误: %v", err)
+		t.Fatalf("SetIPACL() 返回错误: %v", err)
 	}
 
 	// 重置
 	manager.Reset()
 
 	// 验证已重置
-	_, err = manager.GetDomainAclType()
+	_, err = manager.GetDomainACLType()
 	if err == nil {
-		t.Error("GetDomainAclType() 在重置后应返回错误")
+		t.Error("GetDomainACLType() 在重置后应返回错误")
 	}
 
-	_, err = manager.GetIPAclType()
+	_, err = manager.GetIPACLType()
 	if err == nil {
-		t.Error("GetIPAclType() 在重置后应返回错误")
+		t.Error("GetIPACLType() 在重置后应返回错误")
 	}
 
 	if len(manager.GetDomains()) > 0 {

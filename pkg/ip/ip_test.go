@@ -9,8 +9,8 @@ import (
 	"github.com/cyberspacesec/go-acl/pkg/types"
 )
 
-// TestNewIPAcl 测试创建IP访问控制列表
-func TestNewIPAcl(t *testing.T) {
+// TestNewIPACL 测试创建IP访问控制列表
+func TestNewIPACL(t *testing.T) {
 	tests := []struct {
 		name      string
 		ipRanges  []string
@@ -89,17 +89,17 @@ func TestNewIPAcl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl, err := NewIPAcl(tt.ipRanges, tt.listType)
+			acl, err := NewIPACL(tt.ipRanges, tt.listType)
 
 			// 检查错误
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewIPAcl() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewIPACL() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
 			if tt.wantErr && tt.errType != nil {
 				if !errors.Is(err, tt.errType) {
-					t.Errorf("NewIPAcl() error = %v, want error type %v", err, tt.errType)
+					t.Errorf("NewIPACL() error = %v, want error type %v", err, tt.errType)
 				}
 				return
 			}
@@ -122,14 +122,14 @@ func TestNewIPAcl(t *testing.T) {
 	}
 }
 
-// TestIPAcl_Add 测试添加IP到访问控制列表
-func TestIPAcl_Add(t *testing.T) {
+// TestIPACL_Add 测试添加IP到访问控制列表
+func TestIPACL_Add(t *testing.T) {
 	// 创建一个初始ACL
-	initialACL, _ := NewIPAcl([]string{"192.168.1.1"}, types.Blacklist)
+	initialACL, _ := NewIPACL([]string{"192.168.1.1"}, types.Blacklist)
 
 	tests := []struct {
 		name         string
-		acl          *IPAcl
+		acl          *IPACL
 		ipToAdd      []string
 		wantErr      bool
 		errType      error
@@ -234,8 +234,8 @@ func TestIPAcl_Add(t *testing.T) {
 	}
 }
 
-// TestIPAcl_Remove 测试从访问控制列表中移除IP
-func TestIPAcl_Remove(t *testing.T) {
+// TestIPACL_Remove 测试从访问控制列表中移除IP
+func TestIPACL_Remove(t *testing.T) {
 	// 创建一个包含多个IP的ACL
 	baseIPs := []string{"192.168.1.1", "10.0.0.0/8", "172.16.0.0/12", "2001:db8::1", "2001:db8::/32"}
 
@@ -301,7 +301,7 @@ func TestIPAcl_Remove(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl, _ := NewIPAcl(tt.initialIPs, types.Blacklist)
+			acl, _ := NewIPACL(tt.initialIPs, types.Blacklist)
 			err := acl.Remove(tt.ipToRemove...)
 
 			// 检查错误
@@ -329,17 +329,17 @@ func TestIPAcl_Remove(t *testing.T) {
 	}
 }
 
-// TestIPAcl_Check 测试检查IP的访问权限
-func TestIPAcl_Check(t *testing.T) {
+// TestIPACL_Check 测试检查IP的访问权限
+func TestIPACL_Check(t *testing.T) {
 	// 创建黑名单ACL
-	blacklistACL, _ := NewIPAcl([]string{"192.168.1.0/24", "10.0.0.0/8", "2001:db8::/32"}, types.Blacklist)
+	blacklistACL, _ := NewIPACL([]string{"192.168.1.0/24", "10.0.0.0/8", "2001:db8::/32"}, types.Blacklist)
 
 	// 创建白名单ACL
-	whitelistACL, _ := NewIPAcl([]string{"192.168.1.0/24", "10.0.0.0/8", "2001:db8::/32"}, types.Whitelist)
+	whitelistACL, _ := NewIPACL([]string{"192.168.1.0/24", "10.0.0.0/8", "2001:db8::/32"}, types.Whitelist)
 
 	tests := []struct {
 		name      string
-		acl       *IPAcl
+		acl       *IPACL
 		ipToCheck string
 		want      types.Permission
 		wantErr   bool
@@ -448,8 +448,8 @@ func TestIPAcl_Check(t *testing.T) {
 	}
 }
 
-// TestNewIPAclWithDefaults 测试创建带预定义集合的ACL
-func TestNewIPAclWithDefaults(t *testing.T) {
+// TestNewIPACLWithDefaults 测试创建带预定义集合的ACL
+func TestNewIPACLWithDefaults(t *testing.T) {
 	tests := []struct {
 		name             string
 		ipRanges         []string
@@ -517,11 +517,11 @@ func TestNewIPAclWithDefaults(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl, err := NewIPAclWithDefaults(tt.ipRanges, tt.listType, tt.predefinedSets, tt.allowDefaultSets)
+			acl, err := NewIPACLWithDefaults(tt.ipRanges, tt.listType, tt.predefinedSets, tt.allowDefaultSets)
 
 			// 检查错误
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewIPAclWithDefaults() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewIPACLWithDefaults() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
@@ -542,17 +542,17 @@ func TestNewIPAclWithDefaults(t *testing.T) {
 	}
 }
 
-// TestNewIPAclWithDefaultsErrorCases 测试NewIPAclWithDefaults函数的错误处理
-func TestNewIPAclWithDefaultsErrorCases(t *testing.T) {
+// TestNewIPACLWithDefaultsErrorCases 测试NewIPACLWithDefaults函数的错误处理
+func TestNewIPACLWithDefaultsErrorCases(t *testing.T) {
 	// 测试无效的IP范围导致的错误
-	_, err := NewIPAclWithDefaults([]string{"invalid-ip"}, types.Blacklist, []PredefinedSet{PrivateNetworks}, false)
+	_, err := NewIPACLWithDefaults([]string{"invalid-ip"}, types.Blacklist, []PredefinedSet{PrivateNetworks}, false)
 	if err == nil {
 		t.Errorf("对于无效的IP范围，应该返回错误")
 	}
 }
 
-// TestIPAcl_AddPredefinedSet 测试添加预定义集合
-func TestIPAcl_AddPredefinedSet(t *testing.T) {
+// TestIPACL_AddPredefinedSet 测试添加预定义集合
+func TestIPACL_AddPredefinedSet(t *testing.T) {
 	tests := []struct {
 		name           string
 		initialIPs     []string
@@ -613,7 +613,7 @@ func TestIPAcl_AddPredefinedSet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			acl, _ := NewIPAcl(tt.initialIPs, tt.listType)
+			acl, _ := NewIPACL(tt.initialIPs, tt.listType)
 			initialCount := len(acl.GetIPRanges())
 
 			err := acl.AddPredefinedSet(tt.setToAdd, tt.allowSet)
@@ -645,10 +645,10 @@ func TestIPAcl_AddPredefinedSet(t *testing.T) {
 	}
 }
 
-// TestIPAcl_AddPredefinedSetEdgeCases 测试AddPredefinedSet函数的边缘情况
-func TestIPAcl_AddPredefinedSetEdgeCases(t *testing.T) {
+// TestIPACL_AddPredefinedSetEdgeCases 测试AddPredefinedSet函数的边缘情况
+func TestIPACL_AddPredefinedSetEdgeCases(t *testing.T) {
 	// 测试白名单模式且allowSet=false的情况（不应添加预定义集合）
-	acl, err := NewIPAcl([]string{"8.8.8.8"}, types.Whitelist)
+	acl, err := NewIPACL([]string{"8.8.8.8"}, types.Whitelist)
 	if err != nil {
 		t.Fatalf("创建ACL失败: %v", err)
 	}
@@ -666,7 +666,7 @@ func TestIPAcl_AddPredefinedSetEdgeCases(t *testing.T) {
 	}
 
 	// 测试黑名单模式且allowSet=true的情况（不应添加预定义集合）
-	acl, err = NewIPAcl([]string{"8.8.8.8"}, types.Blacklist)
+	acl, err = NewIPACL([]string{"8.8.8.8"}, types.Blacklist)
 	if err != nil {
 		t.Fatalf("创建ACL失败: %v", err)
 	}
@@ -684,10 +684,10 @@ func TestIPAcl_AddPredefinedSetEdgeCases(t *testing.T) {
 	}
 }
 
-// TestIPAcl_RemoveEmptyList 测试从空列表中移除IP的情况
-func TestIPAcl_RemoveEmptyList(t *testing.T) {
+// TestIPACL_RemoveEmptyList 测试从空列表中移除IP的情况
+func TestIPACL_RemoveEmptyList(t *testing.T) {
 	// 创建一个空的ACL
-	acl, err := NewIPAcl([]string{}, types.Blacklist)
+	acl, err := NewIPACL([]string{}, types.Blacklist)
 	if err != nil {
 		t.Fatalf("创建ACL失败: %v", err)
 	}
@@ -699,10 +699,10 @@ func TestIPAcl_RemoveEmptyList(t *testing.T) {
 	}
 }
 
-// TestIPAcl_matchIP 测试IP匹配功能
-func TestIPAcl_matchIP(t *testing.T) {
+// TestIPACL_matchIP 测试IP匹配功能
+func TestIPACL_matchIP(t *testing.T) {
 	// 创建测试用ACL
-	acl, _ := NewIPAcl([]string{
+	acl, _ := NewIPACL([]string{
 		"192.168.1.0/24",
 		"10.0.0.0/8",
 		"2001:db8::/32",
