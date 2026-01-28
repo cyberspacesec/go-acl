@@ -1,53 +1,102 @@
-# Go项目标准忽略文件
 
+# Air live reload
+# Build output
+# Certificate files (for certificate-hacker)
+# Configuration files with sensitive data
+# Coverage reports
+# Database files
+# Debug files
+# Dependency directories (remove the comment below to include it)
+# Environment files
+# Go workspace file
+# Go项目标准忽略文件
+# IDE files
+# IDE和编辑器文件
+# Log files
+# MCP related
+# Nuclei templates (custom)
+# OS generated files
+# Output of the go coverage tool, specifically when used with LiteIDE
+# Profiling data
+# Submodule specific
+# Task runner
+# Temporary files
+# Test binary, built with `go test -c`
+# 依赖相关
+# 日志文件
+# 测试缓存
+# 覆盖率报告
+# 自动生成的文件
+# 项目二进制输出目录
+# 项目特定的临时文件
+# 本地配置文件（可能包含敏感信息）
 # 编译生成的二进制文件和可执行文件
+*.crt
+*.db
+*.dll
+*.dylib
 *.exe
 *.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-
-# 项目二进制输出目录
-/bin/
-/dist/
-
-# 依赖相关
-/vendor/
-/Godeps/
-
-# IDE和编辑器文件
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# 项目特定的临时文件
-/tmp*/
-tmp_*/
-app_config/
-/examples/**/tmp*/
-
-# 测试缓存
-.testcache/
-
-# 日志文件
-*.log
-
-# 覆盖率报告
-coverage.txt
-cover.out
-coverage.html
-
-# 本地配置文件（可能包含敏感信息）
+*.key
+*.local.json
 *.local.yaml
 *.local.yml
-*.local.json
-config.local.*
-
-# 自动生成的文件
+*.log
+*.out
+*.p12
+*.pem
+*.pprof
+*.prof
+*.so
+*.sqlite
+*.sqlite3
+*.swo
+*.swp
+*.temp
+*.test
+*.tmp
+*.yaml.bak
+*~
+.DS_Store
+.Spotlight-V100
+.Trashes
+.air.toml
+.env
+.env.*.local
+.env.local
+.gitmodule.*
+.idea/
+.mcp/
+.testcache/
+.vscode/
+/Godeps/
 /auto_generated/
-_gen.go 
+/bin/
+/build/
+/cache/
+/dist/
+/examples/**/tmp*/
+/tmp*/
+/tmp/
+/vendor/
+Taskfile.yml
+Thumbs.db
+_gen.go # Binaries for programs and plugins
+app_config/
+config.json
+config.local.*
+config.yaml
+config.yml
+cover.out
+coverage.html
+coverage.out
+coverage.txt
+debug
+debug.exe
+go.work
+secrets.yaml
+secrets.yml
+templates-custom/
+tmp/
+tmp_*/
+vendor/
