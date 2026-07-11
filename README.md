@@ -130,6 +130,35 @@ func main() {
 }
 ```
 
+## 📦 统一配置（JSON Policy）
+
+除命令式 API 外，可用一份 JSON 同时配置域名 + IP 规则：
+
+```go
+pol, err := config.LoadPolicyFromFile("./security_policy.json")
+if err != nil { return err }
+manager := acl.NewManager()
+if err := manager.ApplyPolicy(pol); err != nil { return err }
+```
+
+策略字段：`domain.{domains,listType,includeSubdomains,file}` 与 `ip.{ranges,listType,predefinedSets,allowPredefined,file}`。任一顶层字段省略即跳过该类型 ACL。详见 [`testdata/security_policy.json`](testdata/security_policy.json)。
+
+## 🌐 HTTP 中间件
+
+把 `Manager` 的 IP/域名检查封装为 `net/http` 中间件，一行接入：
+
+```go
+handler := middleware.New(manager, middleware.Options{
+    CheckClientIP: true,
+    CheckHost:     true,
+})(mux)
+http.ListenAndServe(":8080", handler)
+```
+
+- 默认 **不信任** `X-Forwarded-For`/`X-Real-IP`（`TrustProxy=false`），防止伪造头绕过 IP 黑名单；部署在可信反代后端时再开启。
+- 任一检查 `Denied` → 返回 403；未配置对应 ACL kind → 该项放行。
+- 可通过 `Options.Denied` 自定义拒绝响应。
+
 ## 🎯 主要组件
 
 ```mermaid
@@ -232,6 +261,7 @@ manager.SetIPAclWithDefaults(
 | **ACL管理器** | 演示同时管理域名和IP规则 | [查看示例](examples/05_acl_manager/) |
 | **完整应用示例** | 集成所有功能的Web应用防护示例 | [查看示例](examples/06_complete_example/) |
 | **自定义ACL扩展** | 演示注册自定义 ACL 实现到 Manager | [查看示例](examples/07_custom_acl/) |
+| **HTTP 中间件** | 演示一份 JSON 配置 + 一行中间件完成访问控制 | [查看示例](examples/08_http_middleware/) |
 
 查看[示例目录](examples/)获取完整示例代码。
 
