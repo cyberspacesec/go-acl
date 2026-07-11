@@ -156,3 +156,33 @@ func TestMiddleware_NoACLKindPasses(t *testing.T) {
 		t.Errorf("未配置 ACL 应放行 200，得到 %d", rec.Code)
 	}
 }
+
+// TestMiddleware_DefaultOptionsEnforce 验证传 Options{}（全零值）时默认开启 IP+域名检查
+func TestMiddleware_DefaultOptionsEnforce(t *testing.T) {
+	m := newManager(t)
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	// 不显式设置 CheckClientIP/CheckHost，应默认开启
+	handler := New(m, Options{})(next)
+
+	// 黑名单 IP 应被 403（证明 IP 检查默认开启）
+	req := httptest.NewRequest("GET", "/x", nil)
+	req.RemoteAddr = "10.0.0.1:1"
+	req.Host = "good.com"
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("默认应开启 IP 检查，黑名单 IP 应 403，得到 %d", rec.Code)
+	}
+
+	// 黑名单域名应被 403（证明域名检查默认开启）
+	req2 := httptest.NewRequest("GET", "/x", nil)
+	req2.RemoteAddr = "8.8.8.8:1"
+	req2.Host = "sub.bad.com"
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusForbidden {
+		t.Errorf("默认应开启域名检查，黑名单域名应 403，得到 %d", rec2.Code)
+	}
+}

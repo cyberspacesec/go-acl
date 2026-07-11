@@ -39,9 +39,18 @@ func New(manager *acl.Manager, opts Options) func(http.Handler) http.Handler {
 	if opts.Denied == nil {
 		opts.Denied = defaultDenied
 	}
+	// 两项检查默认开启：当调用方未显式开启任何一项（全零值）时，
+	// 视为使用默认值开启 CheckClientIP 与 CheckHost，匹配文档承诺。
+	// 若调用方显式只开启一项，则尊重其选择。
+	if !opts.CheckClientIP && !opts.CheckHost {
+		opts.CheckClientIP = true
+		opts.CheckHost = true
+	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// 防御性分支：正常情况下 New 已保证至少一项为 true，此处不会触发。
+			// 保留以备未来增加全局 Run/Disable 开关时仍能正确放行。
 			if !opts.CheckClientIP && !opts.CheckHost {
 				next.ServeHTTP(w, r)
 				return
