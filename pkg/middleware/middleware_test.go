@@ -186,3 +186,71 @@ func TestMiddleware_DefaultOptionsEnforce(t *testing.T) {
 		t.Errorf("默认应开启域名检查，黑名单域名应 403，得到 %d", rec2.Code)
 	}
 }
+
+// TestMiddleware_EmptyHostWhitelistDenied 验证白名单模式下空 Host 被 fail-closed 拒绝
+func TestMiddleware_EmptyHostWhitelistDenied(t *testing.T) {
+	m := acl.NewManager()
+	// 域名白名单：只允许 trusted.com
+	m.SetDomainACL([]string{"trusted.com"}, types.Whitelist, true)
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := New(m, Options{CheckHost: true, CheckClientIP: false})(next)
+
+	// 构造空 Host 请求（RemoteAddr 用合法公网 IP 避免干扰，但 CheckClientIP=false）
+	req := httptest.NewRequest("GET", "/x", nil)
+	req.Host = ""
+	req.RemoteAddr = "8.8.8.8:1"
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("白名单模式下空 Host 应 fail-closed 403，得到 %d", rec.Code)
+	}
+}
+
+// TestMiddleware_EmptyHostBlacklistAllowed 验证黑名单模式下空 Host 放行（空值不在黑名单）
+func TestMiddleware_EmptyHostBlacklistAllowed(t *testing.T) {
+	m := acl.NewManager()
+	m.SetDomainACL([]string{"bad.com"}, types.Blacklist, true)
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := New(m, Options{CheckHost: true, CheckClientIP: false})(next)
+
+	req := httptest.NewRequest("GET", "/x", nil)
+	req.Host = ""
+	req.RemoteAddr = "8.8.8.8:1"
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("黑名单模式下空 Host 应放行 200，得到 %d", rec.Code)
+	}
+}
+
+// TestMiddleware_EmptyClientIPWhitelistDenied 验证白名单模式下空客户端 IP fail-closed
+func TestMiddleware_EmptyClientIPWhitelistDenied(t *testing.T) {
+	m := acl.NewManager()
+	if err := m.SetIPACL([]string{"8.8.8.8"}, types.Whitelist); err != nil {
+		t.Fatalf("SetIPACL 失败: %v", err)
+	}
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := New(m, Options{CheckHost: false, CheckClientIP: true})(next)
+
+	// 构造空 RemoteAddr 请求（httptest.NewRequest 默认 RemoteAddr 为空）
+	req := httptest.NewRequest("GET", "/x", nil)
+	req.Host = "good.com"
+	req.RemoteAddr = ""
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("白名单模式下空客户端 IP 应 fail-closed 403，得到 %d", rec.Code)
+	}
+}

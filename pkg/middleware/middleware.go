@@ -58,7 +58,13 @@ func New(manager *acl.Manager, opts Options) func(http.Handler) http.Handler {
 
 			if opts.CheckHost {
 				host := extractHost(r.Host)
-				if host != "" {
+				if host == "" {
+					// 空 Host：白名单模式下 fail-closed（拒绝），黑名单或未配置则放行该项
+					if lt, err := manager.GetDomainACLType(); err == nil && lt == types.Whitelist {
+						opts.Denied(w, r)
+						return
+					}
+				} else {
 					perm, err := manager.CheckDomain(host)
 					// err==ErrNoACL 视为该项未配置 → 放行该项
 					if err == nil && perm == types.Denied {
@@ -70,7 +76,13 @@ func New(manager *acl.Manager, opts Options) func(http.Handler) http.Handler {
 
 			if opts.CheckClientIP {
 				clientIP := extractClientIP(r, opts.TrustProxy)
-				if clientIP != "" {
+				if clientIP == "" {
+					// 空客户端 IP：白名单模式下 fail-closed（拒绝），黑名单或未配置则放行该项
+					if lt, err := manager.GetIPACLType(); err == nil && lt == types.Whitelist {
+						opts.Denied(w, r)
+						return
+					}
+				} else {
 					perm, err := manager.CheckIP(clientIP)
 					if err == nil && perm == types.Denied {
 						opts.Denied(w, r)
