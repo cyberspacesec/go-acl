@@ -71,7 +71,7 @@ func TestApplyPolicy_DomainOnly(t *testing.T) {
 	}
 }
 
-// TestApplyPolicy_InvalidListType 验证非法 listType 报错且不静默通过
+// TestApplyPolicy_InvalidListType 验证非法 listType 报错且不污染 Manager
 func TestApplyPolicy_InvalidListType(t *testing.T) {
 	manager := NewManager()
 	pol := &config.Policy{
@@ -83,6 +83,11 @@ func TestApplyPolicy_InvalidListType(t *testing.T) {
 	err := manager.ApplyPolicy(pol)
 	if err == nil {
 		t.Fatal("非法 listType 应返回错误")
+	}
+	// listType 非法时应早失败，不注入 Manager
+	_, checkErr := manager.CheckDomain("x.com")
+	if !errors.Is(checkErr, types.ErrNoACL) {
+		t.Errorf("非法 listType 时 Manager 不应被污染，期望 ErrNoACL，得到 %v", checkErr)
 	}
 }
 
