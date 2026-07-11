@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cyberspacesec/go-acl/pkg/ip"
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/ip"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 func main() {

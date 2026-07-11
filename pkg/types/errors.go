@@ -16,6 +16,9 @@ var (
 	//    }
 	ErrNoACL = errors.New("no ACL configured")
 
+	// ErrACLAlreadyRegistered 表示尝试注册的 ACL kind 已被占用
+	ErrACLAlreadyRegistered = errors.New("ACL kind already registered")
+
 	// 其他可能的错误可以在此处添加
 	// 例如：权限错误、配置错误等
 )

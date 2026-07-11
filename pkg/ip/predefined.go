@@ -1,6 +1,6 @@
 package ip
 
-import "github.com/cyberspacesec/go-acl/pkg/types"
+import "github.com/cyberspacesec/acl-skills/pkg/types"
 
 // PredefinedSet 表示预定义IP集合的类型
 //

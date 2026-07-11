@@ -4,8 +4,8 @@
   <img src="https://img.shields.io/badge/Go-1.18+-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go版本" />
   <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="许可证" />
   <img src="https://img.shields.io/badge/Coverage-96.7%25-success?style=for-the-badge" alt="测试覆盖率" />
-  <img src="https://img.shields.io/github/workflow/status/cyberspacesec/go-acl/Go%20Tests?style=for-the-badge&logo=github&label=tests" alt="测试状态" />
-  <img src="https://img.shields.io/github/workflow/status/cyberspacesec/go-acl/Go%20Tests?style=for-the-badge&logo=github&label=examples&event=workflow_run" alt="示例测试" />
+  <img src="https://img.shields.io/github/workflow/status/cyberspacesec/acl-skills/Go%20Tests?style=for-the-badge&logo=github&label=tests" alt="测试状态" />
+  <img src="https://img.shields.io/github/workflow/status/cyberspacesec/acl-skills/Go%20Tests?style=for-the-badge&logo=github&label=examples&event=workflow_run" alt="示例测试" />
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/cyberspacesec/go-acl/assets/go-acl-banner.png" alt="go-acl横幅" width="700">
+  <img src="https://raw.githubusercontent.com/cyberspacesec/acl-skills/assets/go-acl-banner.png" alt="go-acl横幅" width="700">
 </p>
 
 ---
@@ -28,6 +28,7 @@
 - [📘 详细用法](#-详细用法)
 - [🧪 预定义IP集合](#-预定义ip集合)
 - [🔍 示例](#-示例)
+- [🧩 可扩展性](#-可扩展性)
 - [📊 性能](#-性能)
 - [👥 贡献](#-贡献)
 - [📜 许可证](#-许可证)
@@ -83,7 +84,7 @@
 
 ```bash
 # 推荐使用Go Module (Go 1.18+)
-go get -u github.com/cyberspacesec/go-acl
+go get -u github.com/cyberspacesec/acl-skills
 ```
 
 ## 🔧 快速开始
@@ -95,8 +96,8 @@ package main
 
 import (
     "fmt"
-    "github.com/cyberspacesec/go-acl/pkg/acl"
-    "github.com/cyberspacesec/go-acl/pkg/types"
+    "github.com/cyberspacesec/acl-skills/pkg/acl"
+    "github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 func main() {
@@ -230,17 +231,55 @@ manager.SetIPAclWithDefaults(
 | **预定义集合** | 演示使用内置IP集合实现安全增强 | [查看示例](examples/04_predefined_sets/) |
 | **ACL管理器** | 演示同时管理域名和IP规则 | [查看示例](examples/05_acl_manager/) |
 | **完整应用示例** | 集成所有功能的Web应用防护示例 | [查看示例](examples/06_complete_example/) |
+| **自定义ACL扩展** | 演示注册自定义 ACL 实现到 Manager | [查看示例](examples/07_custom_acl/) |
 
 查看[示例目录](examples/)获取完整示例代码。
 
+## 🧩 可扩展性
+
+go-acl 通过 `types.MutableACL` 接口提供扩展点，支持接入自定义的访问控制实现：
+
+```go
+// 自定义 ACL 只需实现 MutableACL 接口：
+//   Check(value string) (Permission, error)
+//   GetListType() ListType
+//   Add(rules ...string) error
+//   Remove(rules ...string) error
+//   GetRules() []string
+
+manager := acl.NewManager()
+manager.RegisterACL("token", myTokenACL)          // 注册自定义 ACL
+perm, _ := manager.CheckKind("token", "secret")   // 统一入口检查
+manager.AddRule("token", "new-token")             // 统一入口增删规则
+```
+
+内置的 `KindDomain` / `KindIP` 是预定义的注册键，与旧 API（`SetDomainACL`/`CheckIP` 等）完全兼容。详见 [自定义ACL示例](examples/07_custom_acl/)。
+
+**分层接口**：
+
+| 接口 | 能力 |
+|------|------|
+| `ACL` | 仅 `Check`（最小契约，向后兼容） |
+| `ListTypeACL` | + `GetListType` |
+| `MutableACL` | + `Add`/`Remove`/`GetRules`（Manager 注册所需） |
+
 ## 📊 性能
 
-go-acl库经过优化，具有出色的性能表现：
+go-acl 针对高并发场景做了优化，并配有完整的基准测试（`go test -bench=. -benchmem ./...`）：
 
-- **低内存占用**: 10万条规则仅占用约5MB内存
-- **快速匹配**: 单次规则匹配平均耗时<1µs
-- **线性扩展**: 性能与规则数量成线性关系
-- **并发安全**: 支持高并发环境下的规则检查
+| 场景 | 规模 | 延迟 | 说明 |
+|------|------|------|------|
+| IPACL.Check | 100 / 1000 / 10000 | ~75 ns/op | 前缀树，**与规则数无关** |
+| IPACL.Check（并发） | 10000 | ~45 ns/op | RWMutex 读写分离 |
+| DomainACL.Check（精确） | 100 / 1000 / 10000 | ~70 ns/op | map O(1)，与规则数无关 |
+| DomainACL.Check（含子域名） | 10000 | ~76 µs/op | 后缀线性匹配 |
+| Manager.CheckIP / CheckDomain | 10000 | ~70-80 ns/op | 不同 kind 互不阻塞 |
+
+- **零内存分配**：Check 路径 0 allocs/op
+- **并发安全**：底层 ACL 内置 `sync.RWMutex`，Manager 仅用轻量锁守 map；查询不同 ACL 类型互不阻塞
+- **IP 匹配常数级**：IPv4/IPv6 各一棵按位前缀树（`pkg/ip/trie.go`），查询 O(32)/O(128)
+
+CI 在每次推送时自动运行基准测试（`benchmark` job，不阻塞主流程）。
 
 ## 👥 贡献
 

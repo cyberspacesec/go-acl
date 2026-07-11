@@ -84,4 +84,34 @@ jobs:
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       
       - name: 运行 golangci-lint
-        run: golangci-lint run --timeout=5m 
+        run: golangci-lint run --timeout=5m
+
+  benchmark:
+    name: 性能基准测试
+    runs-on: ubuntu-latest
+    # 不阻塞主流程：即使 benchmark 失败也不影响 PR 合并
+    continue-on-error: true
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21.x
+          cache: true
+
+      - name: 安装依赖
+        run: go mod download
+
+      - name: 运行基准测试
+        run: go test -run=^$ -bench=. -benchmem -timeout=10m ./...
+
+      - name: 上传基准结果
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: |
+            ${{ github.workspace }}
+          if-no-files-found: ignore

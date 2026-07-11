@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cyberspacesec/go-acl/pkg/config"
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/config"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 // 测试数据和辅助函数

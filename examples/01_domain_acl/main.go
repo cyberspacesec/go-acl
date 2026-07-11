@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/cyberspacesec/go-acl/pkg/domain"
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/domain"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 func main() {
@@ -61,7 +61,9 @@ func main() {
 
 	// 添加域名
 	fmt.Println("添加域名: badsite.com, malware.net")
-	dynamicAcl.Add("badsite.com", "malware.net")
+	if err := dynamicAcl.Add("badsite.com", "malware.net"); err != nil {
+		fmt.Printf("添加域名失败: %v\n", err)
+	}
 	fmt.Println("添加后 - 域名列表:", dynamicAcl.GetDomains())
 
 	// 检查是否生效

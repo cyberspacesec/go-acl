@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 // TestNewDomainACL 测试创建域名访问控制列表
@@ -185,7 +185,9 @@ func TestDomainACL_Add(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			acl := NewDomainACL(tt.initialDomains, types.Blacklist, tt.includeSubdomains)
-			acl.Add(tt.domainsToAdd...)
+			if err := acl.Add(tt.domainsToAdd...); err != nil {
+				t.Fatalf("Add 返回错误: %v", err)
+			}
 
 			// 验证域名列表
 			if !reflect.DeepEqual(acl.domains, tt.expectDomains) {

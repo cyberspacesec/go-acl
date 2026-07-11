@@ -148,7 +148,7 @@ go-acl库适用于多种安全场景：
 
 1. 查看 [pkg 目录](../pkg/) 了解源码实现
 2. 阅读 [测试文件](../pkg/domain/domain_test.go) 了解更多用法
-3. 参考 [文档](https://pkg.go.dev/github.com/cyberspacesec/go-acl) 获取完整API细节
+3. 参考 [文档](https://pkg.go.dev/github.com/cyberspacesec/acl-skills) 获取完整API细节
 
 ## 📊 示例复杂度
 
@@ -175,5 +175,5 @@ go-acl库适用于多种安全场景：
 
 <p align="center">
   <sub>所有示例代码均在MIT许可证下提供</sub><br>
-  <sub>有问题或建议？请在GitHub上<a href="https://github.com/cyberspacesec/go-acl/issues">提交Issue</a></sub>
+  <sub>有问题或建议？请在GitHub上<a href="https://github.com/cyberspacesec/acl-skills/issues">提交Issue</a></sub>
 </p> 

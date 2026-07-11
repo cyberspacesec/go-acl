@@ -4,8 +4,9 @@ import (
 	"errors"
 	"net"
 	"strings"
+	"sync"
 
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 // 错误定义
@@ -57,8 +58,11 @@ type IPRange struct {
 //	perm, err := blacklist.Check("192.168.1.5") // 返回 types.Denied
 //	perm, err := whitelist.Check("8.8.8.8")     // 返回 types.Allowed
 type IPACL struct {
+	mu       sync.RWMutex
 	ranges   []IPRange
 	listType types.ListType
+	// trie 用于 O(prefixLen) 的 IP 匹配，与规则数无关
+	trie *ipTrie
 }
 
 // NewIPACL 创建一个新的IP访问控制列表
@@ -102,6 +106,7 @@ type IPACL struct {
 func NewIPACL(ipRanges []string, listType types.ListType) (*IPACL, error) {
 	acl := &IPACL{
 		listType: listType,
+		trie:     newIPTrie(),
 	}
 
 	// 如果没有输入IP，返回空ACL
@@ -122,6 +127,7 @@ func NewIPACL(ipRanges []string, listType types.ListType) (*IPACL, error) {
 		}
 
 		acl.ranges = append(acl.ranges, *ipRange)
+		acl.trie.Insert(ipRange.IPNet)
 	}
 
 	return acl, nil
@@ -163,6 +169,19 @@ func (a *IPACL) Add(ipRanges ...string) error {
 		return nil
 	}
 
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	// 收集已存在的原始串，用于去重
+	existing := make([]string, len(a.ranges))
+	for i, r := range a.ranges {
+		existing[i] = r.Original
+	}
+	seen := make(map[string]struct{}, len(existing))
+	for _, e := range existing {
+		seen[e] = struct{}{}
+	}
+
 	// 解析和验证每个IP或CIDR
 	for _, ipStr := range ipRanges {
 		// 忽略空字符串
@@ -176,19 +195,13 @@ func (a *IPACL) Add(ipRanges ...string) error {
 			return err
 		}
 
-		// 检查是否已存在
-		exists := false
-		for _, existingRange := range a.ranges {
-			if existingRange.Original == ipRange.Original {
-				exists = true
-				break
-			}
+		// 去重：已存在则跳过
+		if _, ok := seen[ipRange.Original]; ok {
+			continue
 		}
-
-		// 添加新的IP/CIDR
-		if !exists {
-			a.ranges = append(a.ranges, *ipRange)
-		}
+		seen[ipRange.Original] = struct{}{}
+		a.ranges = append(a.ranges, *ipRange)
+		a.trie.Insert(ipRange.IPNet)
 	}
 
 	return nil
@@ -233,7 +246,14 @@ func (a *IPACL) Add(ipRanges ...string) error {
 //	    log.Println("IP不在列表中")
 //	}
 func (a *IPACL) Remove(ipRanges ...string) error {
-	if len(ipRanges) == 0 || len(a.ranges) == 0 {
+	if len(ipRanges) == 0 {
+		return nil
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if len(a.ranges) == 0 {
 		return ErrIPNotFound
 	}
 
@@ -264,13 +284,25 @@ func (a *IPACL) Remove(ipRanges ...string) error {
 		if !wasFound && strings.TrimSpace(ipStr) != "" {
 			// 虽然有未找到的IP，但仍更新列表
 			a.ranges = newRanges
+			a.rebuildTrie()
 			return ErrIPNotFound
 		}
 	}
 
 	// 更新IPACL使用新的范围
 	a.ranges = newRanges
+	a.rebuildTrie()
 	return nil
+}
+
+// rebuildTrie 根据当前 ranges 重建前缀树
+// 在 Remove 改变 ranges 后调用，保证 trie 与 ranges 一致。
+// 调用方必须已持有写锁。
+func (a *IPACL) rebuildTrie() {
+	a.trie = newIPTrie()
+	for _, r := range a.ranges {
+		a.trie.Insert(r.IPNet)
+	}
 }
 
 // Check 检查指定的IP是否允许访问
@@ -330,21 +362,14 @@ func (a *IPACL) Check(ip string) (types.Permission, error) {
 		return types.Denied, ErrInvalidIP
 	}
 
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
 	// 检查IP是否匹配列表中的任何范围
 	matched := a.matchIP(parsedIP)
 
-	// 根据列表类型确定权限
-	if a.listType == types.Blacklist {
-		if matched {
-			return types.Denied, nil
-		}
-		return types.Allowed, nil
-	} else { // 白名单
-		if matched {
-			return types.Allowed, nil
-		}
-		return types.Denied, nil
-	}
+	// 根据列表类型确定权限（黑名单命中→拒绝；白名单未命中→拒绝）
+	return types.DecideByListType(a.listType, matched), nil
 }
 
 // GetIPRanges 获取当前访问控制列表中的所有IP/CIDR
@@ -369,11 +394,22 @@ func (a *IPACL) Check(ip string) (types.Permission, error) {
 //	    fmt.Printf("%d. %s\n", i+1, ipRange)
 //	}
 func (a *IPACL) GetIPRanges() []string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
 	ipRanges := make([]string, len(a.ranges))
 	for i, ipRange := range a.ranges {
 		ipRanges[i] = ipRange.Original
 	}
 	return ipRanges
+}
+
+// GetRules 返回当前IP/CIDR规则列表的副本
+//
+// 这是 MutableACL 接口要求的统一命名方法，等同于 GetIPRanges。
+// 旧代码可继续使用 GetIPRanges，二者行为一致。
+func (a *IPACL) GetRules() []string {
+	return a.GetIPRanges()
 }
 
 // GetListType 获取访问控制列表的类型（黑名单或白名单）
@@ -395,6 +431,9 @@ func (a *IPACL) GetIPRanges() []string {
 //	    fmt.Println("这是一个IP白名单")
 //	}
 func (a *IPACL) GetListType() types.ListType {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
 	return a.listType
 }
 
@@ -458,18 +497,7 @@ func (a *IPACL) AddPredefinedSet(setName PredefinedSet, allowSet bool) error {
 //
 // 这是一个内部辅助方法，用于检查IP是否在控制列表的任何范围内。
 func (a *IPACL) matchIP(ip net.IP) bool {
-	for _, ipRange := range a.ranges {
-		// 对于单个IP地址的精确匹配
-		if ipRange.IP != nil && ipRange.IPNet == nil && ipRange.IP.Equal(ip) {
-			return true
-		}
-
-		// 对于CIDR范围的匹配
-		if ipRange.IPNet != nil && ipRange.IPNet.Contains(ip) {
-			return true
-		}
-	}
-	return false
+	return a.trie.Contains(ip)
 }
 
 // parseIPRange 解析IP字符串为IPRange对象

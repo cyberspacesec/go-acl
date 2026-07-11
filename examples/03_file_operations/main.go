@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cyberspacesec/go-acl/pkg/config"
-	"github.com/cyberspacesec/go-acl/pkg/ip"
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/config"
+	"github.com/cyberspacesec/acl-skills/pkg/ip"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 func main() {

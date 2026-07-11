@@ -37,3 +37,30 @@ func (p Permission) String() string {
 		return "unknown"
 	}
 }
+
+// DecideByListType 根据列表类型和匹配结果计算访问决策
+//
+// 这是黑/白名单决策逻辑的统一实现，消除各 ACL 实现中重复的分支：
+//
+//	黑名单模式: 匹配则拒绝，不匹配则允许
+//	白名单模式: 匹配则允许，不匹配则拒绝
+//
+// 参数:
+//   - lt: 列表类型（Blacklist 或 Whitelist）
+//   - matched: 被检查的值是否命中了列表中的规则
+//
+// 返回:
+//   - Permission: Allowed 或 Denied
+func DecideByListType(lt ListType, matched bool) Permission {
+	if lt == Blacklist {
+		if matched {
+			return Denied
+		}
+		return Allowed
+	}
+	// 白名单
+	if matched {
+		return Allowed
+	}
+	return Denied
+}

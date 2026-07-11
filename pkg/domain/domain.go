@@ -3,8 +3,9 @@ package domain
 import (
 	"errors"
 	"strings"
+	"sync"
 
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 // 错误定义
@@ -34,11 +35,12 @@ var (
 //	    false // 不包含子域名
 //	)
 type DomainACL struct {
-	// domains 存储控制的域名列表
+	// mu 保护 domains 的并发访问；listType 与 includeSubdomains 在构造后不可变
+	mu      sync.RWMutex
 	domains []string
-	// listType 标识这是黑名单还是白名单
-	listType types.ListType
-	// includeSubdomains 标识是否检查子域名
+	// domainSet 是 domains 的 set 镜像，用于 includeSubdomains=false 时的 O(1) 精确匹配
+	domainSet         map[string]struct{}
+	listType          types.ListType
 	includeSubdomains bool
 }
 
@@ -84,10 +86,11 @@ func NewDomainACL(domains []string, listType types.ListType, includeSubdomains b
 	acl := &DomainACL{
 		listType:          listType,
 		includeSubdomains: includeSubdomains,
+		domainSet:         make(map[string]struct{}),
 	}
 
 	// 添加域名前标准化
-	acl.Add(domains...)
+	_ = acl.Add(domains...)
 	return acl
 }
 
@@ -116,10 +119,14 @@ func NewDomainACL(domains []string, listType types.ListType, includeSubdomains b
 //	    "Sub.Example.NET",         // 会被标准化为 "sub.example.net"
 //	    "blog.site.com:8080/path", // 会被标准化为 "blog.site.com"
 //	)
-func (d *DomainACL) Add(domains ...string) {
+func (d *DomainACL) Add(domains ...string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	for _, domain := range domains {
 		normalizedDomain := normalizeDomain(domain)
 		if normalizedDomain == "" {
+			// 空域名或经标准化后为空，按既有语义忽略
 			continue
 		}
 
@@ -134,8 +141,12 @@ func (d *DomainACL) Add(domains ...string) {
 
 		if !exists {
 			d.domains = append(d.domains, normalizedDomain)
+			if d.domainSet != nil {
+				d.domainSet[normalizedDomain] = struct{}{}
+			}
 		}
 	}
+	return nil
 }
 
 // Remove 从访问控制列表移除一个或多个域名
@@ -164,37 +175,50 @@ func (d *DomainACL) Add(domains ...string) {
 //	    log.Println("一个或多个域名不在列表中")
 //	}
 func (d *DomainACL) Remove(domains ...string) error {
-	var notFoundErr error
+	// 零参数：no-op，不视为错误
+	if len(domains) == 0 {
+		return nil
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// 构建待删除的标准化集合
+	toRemove := make(map[string]struct{}, len(domains))
+	for _, dom := range domains {
+		n := normalizeDomain(dom)
+		if n == "" {
+			continue
+		}
+		toRemove[n] = struct{}{}
+	}
+	// 传入了参数但全部标准化后为空：视为未找到，保持与旧版一致的错误语义
+	if len(toRemove) == 0 {
+		return ErrDomainNotFound
+	}
+
 	var newDomains []string
-
-	for _, existingDomain := range d.domains {
-		keep := true
-
-		for _, domainToRemove := range domains {
-			normalizedToRemove := normalizeDomain(domainToRemove)
-			if normalizedToRemove == "" {
-				continue
-			}
-
-			if existingDomain == normalizedToRemove {
-				keep = false
-				break
-			}
+	removed := 0
+	for _, existing := range d.domains {
+		if _, drop := toRemove[existing]; drop {
+			removed++
+			continue
 		}
-
-		if keep {
-			newDomains = append(newDomains, existingDomain)
-		}
+		newDomains = append(newDomains, existing)
 	}
 
-	// 检查是否所有要移除的域名都找到了
-	if len(newDomains) == len(d.domains) {
-		notFoundErr = ErrDomainNotFound
-	} else {
-		d.domains = newDomains
+	if removed == 0 {
+		return ErrDomainNotFound
 	}
 
-	return notFoundErr
+	// 更新 domains 与 domainSet 镜像
+	d.domains = newDomains
+	newSet := make(map[string]struct{}, len(newDomains))
+	for _, dom := range newDomains {
+		newSet[dom] = struct{}{}
+	}
+	d.domainSet = newSet
+	return nil
 }
 
 // GetDomains 获取访问控制列表中的所有域名
@@ -215,10 +239,21 @@ func (d *DomainACL) Remove(domains ...string) error {
 //	    fmt.Printf("%d. %s\n", i+1, domain)
 //	}
 func (d *DomainACL) GetDomains() []string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
 	// 返回副本以防止外部修改
 	result := make([]string, len(d.domains))
 	copy(result, d.domains)
 	return result
+}
+
+// GetRules 返回当前域名规则列表的副本
+//
+// 这是 MutableACL 接口要求的统一命名方法，等同于 GetDomains。
+// 旧代码可继续使用 GetDomains，二者行为一致。
+func (d *DomainACL) GetRules() []string {
+	return d.GetDomains()
 }
 
 // GetListType 获取访问控制列表的类型（黑名单或白名单）
@@ -238,6 +273,9 @@ func (d *DomainACL) GetDomains() []string {
 //	    fmt.Println("当前使用白名单模式，默认拒绝访问")
 //	}
 func (d *DomainACL) GetListType() types.ListType {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
 	return d.listType
 }
 
@@ -282,20 +320,13 @@ func (d *DomainACL) Check(domain string) (types.Permission, error) {
 		return types.Denied, ErrInvalidDomain
 	}
 
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
 	matched := d.matchDomain(normalizedDomain)
 
-	// 根据列表类型和匹配结果确定权限
-	if d.listType == types.Blacklist {
-		if matched {
-			return types.Denied, nil
-		}
-		return types.Allowed, nil
-	} else { // Whitelist
-		if matched {
-			return types.Allowed, nil
-		}
-		return types.Denied, nil
-	}
+	// 根据列表类型确定权限（黑名单命中→拒绝；白名单未命中→拒绝）
+	return types.DecideByListType(d.listType, matched), nil
 }
 
 // matchDomain 检查域名是否匹配访问控制列表中的任何域名
@@ -316,17 +347,29 @@ func (d *DomainACL) matchDomain(domain string) bool {
 		return false
 	}
 
+	// 不含子域名匹配：O(1) 精确查找
+	if !d.includeSubdomains {
+		if d.domainSet != nil {
+			_, ok := d.domainSet[domain]
+			return ok
+		}
+		// 兜底：domainSet 未初始化时回退线性扫描
+		for _, aclDomain := range d.domains {
+			if domain == aclDomain {
+				return true
+			}
+		}
+		return false
+	}
+
+	// 含子域名匹配：精确命中或后缀命中
 	for _, aclDomain := range d.domains {
 		// 完全匹配
 		if domain == aclDomain {
 			return true
 		}
-
-		// 如果启用了子域名匹配，检查是否是受控域名的子域名
-		if d.includeSubdomains {
-			if strings.HasSuffix(domain, "."+aclDomain) {
-				return true
-			}
+		if strings.HasSuffix(domain, "."+aclDomain) {
+			return true
 		}
 	}
 

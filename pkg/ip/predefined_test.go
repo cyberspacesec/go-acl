@@ -3,7 +3,7 @@ package ip
 import (
 	"testing"
 
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 // TestGetPredefinedIPRanges 测试获取预定义IP范围

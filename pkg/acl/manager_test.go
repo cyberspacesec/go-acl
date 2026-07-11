@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cyberspacesec/go-acl/pkg/ip"
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/ip"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 // 辅助函数，创建临时测试目录

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cyberspacesec/go-acl/pkg/acl"
-	"github.com/cyberspacesec/go-acl/pkg/ip"
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/acl"
+	"github.com/cyberspacesec/acl-skills/pkg/ip"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 // WebApp 模拟一个使用访问控制的Web应用程序

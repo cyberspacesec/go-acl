@@ -1,8 +1,8 @@
 package ip
 
 import (
-	"github.com/cyberspacesec/go-acl/pkg/config"
-	"github.com/cyberspacesec/go-acl/pkg/types"
+	"github.com/cyberspacesec/acl-skills/pkg/config"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
 // NewIPACLFromFile 从指定文件创建IP访问控制列表
