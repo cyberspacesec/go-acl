@@ -260,6 +260,66 @@ func (m *Manager) SaveIPACLToFileWithOverwrite(filePath string) error {
 	return m.SaveIPACLToFile(filePath, true)
 }
 
+// SetDomainACLFromFile 从文件加载域名访问控制列表
+//
+// 参数:
+//   - filePath: 包含域名列表的文件路径（每行一个域名，# 注释）
+//   - listType: 列表类型（黑名单或白名单）
+//   - includeSubdomains: 是否包含子域名匹配
+//
+// 返回:
+//   - error: 文件读取或解析错误
+//
+// 此方法会覆盖之前设置的任何域名访问控制列表。文件格式与 SetIPACLFromFile 相同。
+//
+// 示例:
+//
+//	err := manager.SetDomainACLFromFile("./domain_blacklist.txt", types.Blacklist, true)
+func (m *Manager) SetDomainACLFromFile(filePath string, listType types.ListType, includeSubdomains bool) error {
+	newACL, err := domain.NewDomainACLFromFile(filePath, listType, includeSubdomains)
+	if err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.acls[KindDomain] = newACL
+	return nil
+}
+
+// SaveDomainACLToFile 将当前域名访问控制列表保存到文件
+//
+// 参数:
+//   - filePath: 要保存的文件路径
+//   - overwrite: 是否覆盖现有文件
+//
+// 返回:
+//   - error: types.ErrNoACL / config.ErrFileExists / config.ErrFilePermission
+func (m *Manager) SaveDomainACLToFile(filePath string, overwrite bool) error {
+	domA := m.domainACL()
+	if domA == nil {
+		return types.ErrNoACL
+	}
+	return domA.SaveToFile(filePath, overwrite)
+}
+
+// AddDomainFromFile 从文件添加域名到现有域名访问控制列表
+//
+// 参数:
+//   - filePath: 包含要添加域名的文件路径
+//
+// 返回:
+//   - error: types.ErrNoACL / 文件读取或解析错误
+//
+// 与 SetDomainACLFromFile 不同，此方法不替换现有 ACL，而是向其追加内容。
+func (m *Manager) AddDomainFromFile(filePath string) error {
+	domA := m.domainACL()
+	if domA == nil {
+		return types.ErrNoACL
+	}
+	return domA.AddFromFile(filePath)
+}
+
 // AddIPFromFile 从文件添加IP或CIDR到IP访问控制列表
 //
 // 参数:

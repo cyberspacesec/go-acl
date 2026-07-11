@@ -1,0 +1,137 @@
+package acl
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/cyberspacesec/acl-skills/pkg/config"
+	"github.com/cyberspacesec/acl-skills/pkg/types"
+)
+
+// TestApplyPolicy_Both 验证一份 JSON 同时配置域名黑名单 + IP 黑名单（含预定义集合）
+func TestApplyPolicy_Both(t *testing.T) {
+	manager := NewManager()
+	pol := &config.Policy{
+		Domain: &config.DomainPolicy{
+			Domains:           []string{"bad.com"},
+			ListType:          "blacklist",
+			IncludeSubdomains: true,
+		},
+		IP: &config.IPPolicy{
+			Ranges:          []string{"203.0.113.1"},
+			ListType:        "blacklist",
+			PredefinedSets:  []string{"private_networks"},
+			AllowPredefined: false,
+		},
+	}
+	if err := manager.ApplyPolicy(pol); err != nil {
+		t.Fatalf("ApplyPolicy 失败: %v", err)
+	}
+
+	// 域名黑名单 + 子域名应 Denied
+	perm, err := manager.CheckDomain("sub.bad.com")
+	if err != nil || perm != types.Denied {
+		t.Errorf("域名子域名应 Denied，得到 %s err=%v", perm, err)
+	}
+	// IP 黑名单：内网应 Denied
+	perm, err = manager.CheckIP("10.0.0.1")
+	if err != nil || perm != types.Denied {
+		t.Errorf("内网 IP 应 Denied，得到 %s err=%v", perm, err)
+	}
+	// 公网 IP 应 Allowed
+	perm, err = manager.CheckIP("8.8.4.4")
+	if err != nil || perm != types.Allowed {
+		t.Errorf("公网 IP 应 Allowed，得到 %s err=%v", perm, err)
+	}
+}
+
+// TestApplyPolicy_DomainOnly 验证只配置域名时不影响 IP kind
+func TestApplyPolicy_DomainOnly(t *testing.T) {
+	manager := NewManager()
+	pol := &config.Policy{
+		Domain: &config.DomainPolicy{
+			Domains:  []string{"only.com"},
+			ListType: "whitelist",
+		},
+	}
+	if err := manager.ApplyPolicy(pol); err != nil {
+		t.Fatalf("ApplyPolicy 失败: %v", err)
+	}
+	// 白名单：未命中应 Denied
+	perm, _ := manager.CheckDomain("other.com")
+	if perm != types.Denied {
+		t.Errorf("白名单未命中应 Denied，得到 %s", perm)
+	}
+	// IP kind 未配置
+	_, err := manager.CheckIP("1.2.3.4")
+	if !errors.Is(err, types.ErrNoACL) {
+		t.Errorf("未配置 IP ACL 应返回 ErrNoACL，得到 %v", err)
+	}
+}
+
+// TestApplyPolicy_InvalidListType 验证非法 listType 报错且不静默通过
+func TestApplyPolicy_InvalidListType(t *testing.T) {
+	manager := NewManager()
+	pol := &config.Policy{
+		Domain: &config.DomainPolicy{
+			Domains:  []string{"x.com"},
+			ListType: "graylist",
+		},
+	}
+	err := manager.ApplyPolicy(pol)
+	if err == nil {
+		t.Fatal("非法 listType 应返回错误")
+	}
+}
+
+// TestApplyPolicy_NilPolicy 验证 nil 策略为 no-op
+func TestApplyPolicy_NilPolicy(t *testing.T) {
+	manager := NewManager()
+	if err := manager.ApplyPolicy(nil); err != nil {
+		t.Fatalf("nil 策略应返回 nil，得到 %v", err)
+	}
+}
+
+// TestApplyPolicy_WithFiles 验证 Domain.File 与 IP.File 追加加载
+func TestApplyPolicy_WithFiles(t *testing.T) {
+	dir := t.TempDir()
+	domFile := filepath.Join(dir, "domains.txt")
+	if err := os.WriteFile(domFile, []byte("filedom.com\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ipFile := filepath.Join(dir, "ips.txt")
+	if err := os.WriteFile(ipFile, []byte("198.51.100.5\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	manager := NewManager()
+	pol := &config.Policy{
+		Domain: &config.DomainPolicy{
+			Domains:           []string{"inlinedomain.com"},
+			ListType:          "blacklist",
+			IncludeSubdomains: true,
+			File:              domFile,
+		},
+		IP: &config.IPPolicy{
+			Ranges:   []string{"203.0.113.1"},
+			ListType: "blacklist",
+			File:     ipFile,
+		},
+	}
+	if err := manager.ApplyPolicy(pol); err != nil {
+		t.Fatalf("ApplyPolicy 失败: %v", err)
+	}
+	// 文件中的域名与行内域名都应生效
+	if perm, _ := manager.CheckDomain("sub.filedom.com"); perm != types.Denied {
+		t.Errorf("文件域名子域应 Denied，得到 %s", perm)
+	}
+	if perm, _ := manager.CheckDomain("inlinedomain.com"); perm != types.Denied {
+		t.Errorf("行内域名应 Denied，得到 %s", perm)
+	}
+	// 文件中的 IP 应生效
+	if perm, _ := manager.CheckIP("198.51.100.5"); perm != types.Denied {
+		t.Errorf("文件 IP 应 Denied，得到 %s", perm)
+	}
+}
