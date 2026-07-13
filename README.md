@@ -27,6 +27,7 @@
 - [🎯 主要组件](#-主要组件)
 - [📘 详细用法](#-详细用法)
 - [🧪 预定义IP集合](#-预定义ip集合)
+- [🌐 预定义域名集合](#-预定义域名集合)
 - [🔍 示例](#-示例)
 - [🧩 可扩展性](#-可扩展性)
 - [📊 性能](#-性能)
@@ -141,7 +142,7 @@ manager := acl.NewManager()
 if err := manager.ApplyPolicy(pol); err != nil { return err }
 ```
 
-策略字段：`domain.{domains,listType,includeSubdomains,file}` 与 `ip.{ranges,listType,predefinedSets,allowPredefined,file}`。任一顶层字段省略即跳过该类型 ACL。详见 [`testdata/security_policy.json`](testdata/security_policy.json)。
+策略字段：`domain.{domains,listType,includeSubdomains,predefinedSets,allowPredefined,file}` 与 `ip.{ranges,listType,predefinedSets,allowPredefined,file}`。任一顶层字段省略即跳过该类型 ACL，`predefinedSets` 引用预定义集合名（见下文 [预定义域名集合](#-预定义域名集合) 与 [预定义IP集合](#-预定义ip集合)）。详见 [`testdata/security_policy.json`](testdata/security_policy.json)。
 
 ## 🌐 HTTP 中间件
 
@@ -248,6 +249,58 @@ manager.SetIPAclWithDefaults(
 )
 ```
 
+## 🌐 预定义域名集合
+
+与 IP 侧对称，`pkg/domain` 内置多种预定义域名集合，用于常见外联管控场景：
+
+| 集合名称 | 描述 | 安全场景 |
+|---------|------|--------|
+| `domain.Shorteners` | URL 短链服务域名 | 反钓鱼/隐藏跳转目标 |
+| `domain.PublicFileSharing` | 公共网盘/文件分享域名 | 防止数据外泄 |
+| `domain.CodeHosting` | 代码托管平台域名 | 防止源码外泄 |
+| `domain.SocialMedia` | 主流社交媒体域名 | 限制企业外联访问 |
+| `domain.WebmailProviders` | 网页邮箱服务域名 | 数据外泄/钓鱼管控 |
+| `domain.TorExitNodes` | Tor 出口节点相关域名 | 阻断匿名网络流量 |
+| `domain.DisposableEmail` | 一次性邮箱服务域名 | 阻止注册绕过验证 |
+| `domain.TrustedCDN` | 可信公共 CDN 域名 | 白名单放行加速域名 |
+| `domain.AllMaliciousDomains` | 上述高风险集合的合集 | 最全面外联管控 |
+
+### 使用预定义域名集合
+
+```go
+// 黑名单：一键阻止短链 + 一次性邮箱 + 自定义恶意域名
+manager.SetDomainACLWithDefaults(
+    []string{"custom-malware.com"},
+    types.Blacklist,
+    true, // 包含子域名
+    []domain.PredefinedSet{
+        domain.Shorteners,
+        domain.DisposableEmail,
+    },
+    false, // 黑名单 + false = 阻止这些集合
+)
+
+// 白名单：向已有白名单追加可信 CDN
+manager.SetDomainACL([]string{"trusted-service.com"}, types.Whitelist, true)
+manager.AddPredefinedDomainSet(domain.TrustedCDN, true) // 白名单 + true = 允许这些集合
+```
+
+也可在 JSON Policy 中引用（字段名与常量值一致，如 `"shorteners"`、`"disposable_email"`）：
+
+```json
+{
+  "domain": {
+    "domains": ["custom-malware.com"],
+    "listType": "blacklist",
+    "includeSubdomains": true,
+    "predefinedSets": ["shorteners", "disposable_email"],
+    "allowPredefined": false
+  }
+}
+```
+
+详见 [预定义域名集合示例](examples/09_domain_predefined_sets/)。
+
 ## 🔍 示例
 
 我们提供了多个详细的示例，展示go-acl的各种使用场景：
@@ -262,6 +315,7 @@ manager.SetIPAclWithDefaults(
 | **完整应用示例** | 集成所有功能的Web应用防护示例 | [查看示例](examples/06_complete_example/) |
 | **自定义ACL扩展** | 演示注册自定义 ACL 实现到 Manager | [查看示例](examples/07_custom_acl/) |
 | **HTTP 中间件** | 演示一份 JSON 配置 + 一行中间件完成访问控制 | [查看示例](examples/08_http_middleware/) |
+| **预定义域名集合** | 演示短链/一次性邮箱/可信 CDN 等域名集合的外联管控 | [查看示例](examples/09_domain_predefined_sets/) |
 
 查看[示例目录](examples/)获取完整示例代码。
 
