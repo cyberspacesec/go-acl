@@ -94,6 +94,51 @@ func NewDomainACL(domains []string, listType types.ListType, includeSubdomains b
 	return acl
 }
 
+// NewDomainACLWithDefaults 创建一个新的域名访问控制列表，同时加入预定义的域名集合
+//
+// 参数:
+//   - domains: 基础域名列表
+//   - listType: 列表类型（黑名单或白名单）
+//   - includeSubdomains: 是否包含子域名匹配
+//   - predefinedSets: 要包含的预定义域名集合列表
+//     例如: []PredefinedSet{Shorteners, DisposableEmail}
+//   - allowDefaultSets: 预定义集合的处理方式
+//   - 对于黑名单，false 表示阻止这些域名（添加到黑名单）
+//   - 对于白名单，true 表示允许这些域名（添加到白名单）
+//
+// 返回:
+//   - *DomainACL: 创建的域名访问控制列表
+//   - error: ErrInvalidPredefinedSet 指定的预定义集合不存在
+//
+// 此函数是创建具有安全防护功能 ACL 的便捷方法，特别适用于一键阻止高风险域名类别。
+//
+// 示例:
+//
+//	// 创建黑名单，阻止短链与一次性邮箱域名
+//	blacklist, err := domain.NewDomainACLWithDefaults(
+//	    []string{"malware.example.com"},
+//	    types.Blacklist,
+//	    true,
+//	    []domain.PredefinedSet{
+//	        domain.Shorteners,
+//	        domain.DisposableEmail,
+//	    },
+//	    false, // 添加到黑名单阻止这些域名
+//	)
+//	if err != nil {
+//	    log.Printf("创建域名黑名单失败: %v", err)
+//	    return
+//	}
+func NewDomainACLWithDefaults(domains []string, listType types.ListType, includeSubdomains bool, predefinedSets []PredefinedSet, allowDefaultSets bool) (*DomainACL, error) {
+	acl := NewDomainACL(domains, listType, includeSubdomains)
+	for _, setName := range predefinedSets {
+		if err := acl.AddPredefinedSet(setName, allowDefaultSets); err != nil {
+			return nil, err
+		}
+	}
+	return acl, nil
+}
+
 // Add 向访问控制列表添加一个或多个域名
 //
 // 参数:
@@ -218,6 +263,40 @@ func (d *DomainACL) Remove(domains ...string) error {
 		newSet[dom] = struct{}{}
 	}
 	d.domainSet = newSet
+	return nil
+}
+
+// AddPredefinedSet 向域名访问控制列表添加一个预定义域名集合
+//
+// 参数:
+//   - setName: 预定义集合名称
+//     可用值: domain.Shorteners, domain.DisposableEmail, domain.AllMaliciousDomains 等
+//   - allowSet: 预定义集合的处理方式
+//   - 对于黑名单，false 表示阻止这些域名（添加到黑名单）
+//   - 对于白名单，true 表示允许这些域名（添加到白名单）
+//
+// 返回:
+//   - error: 可能的错误:
+//   - ErrInvalidPredefinedSet: 如果提供了无效的预定义集合名称
+//
+// 域名在添加前会经 normalizeDomain 自动标准化，与 Add 行为一致。
+// 当 listType 与 allowSet 的组合表示"不实际添加"时，本方法为 no-op 并返回 nil。
+//
+// 示例:
+//
+//	// 向黑名单添加短链域名（阻止访问）
+//	err := acl.AddPredefinedSet(domain.Shorteners, false)
+//	// 向白名单添加可信 CDN 域名（允许访问）
+//	err := acl.AddPredefinedSet(domain.TrustedCDN, true)
+func (d *DomainACL) AddPredefinedSet(setName PredefinedSet, allowSet bool) error {
+	domains, err := getPredefinedSet(setName)
+	if err != nil {
+		return err
+	}
+	// 与 IP 侧语义一致：黑名单+!allowSet 添加为阻止项；白名单+allowSet 添加为允许项
+	if (d.listType == types.Blacklist && !allowSet) || (d.listType == types.Whitelist && allowSet) {
+		return d.Add(domains...)
+	}
 	return nil
 }
 

@@ -1118,3 +1118,128 @@ func TestPortParsingEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+// TestAddPredefinedSet 测试向 DomainACL 添加预定义域名集合
+func TestAddPredefinedSet(t *testing.T) {
+	tests := []struct {
+		name            string
+		setName         PredefinedSet
+		allowSet        bool
+		listType        types.ListType
+		wantErr         bool
+		wantErrIs       error
+		wantSampleMatch bool // 添加后是否应命中集合中的样本域名
+		sampleDomain    string
+		includeSubs     bool
+	}{
+		{
+			name:            "黑名单添加短链集合（阻止）",
+			setName:         Shorteners,
+			allowSet:        false,
+			listType:        types.Blacklist,
+			wantErr:         false,
+			wantSampleMatch: true,
+			sampleDomain:    "bit.ly",
+			includeSubs:     true,
+		},
+		{
+			name:            "白名单添加可信CDN集合（允许）",
+			setName:         TrustedCDN,
+			allowSet:        true,
+			listType:        types.Whitelist,
+			wantErr:         false,
+			wantSampleMatch: true,
+			sampleDomain:    "jsdelivr.net",
+			includeSubs:     false,
+		},
+		{
+			name:            "黑名单+allowSet=true 不实际添加（no-op）",
+			setName:         Shorteners,
+			allowSet:        true,
+			listType:        types.Blacklist,
+			wantErr:         false,
+			wantSampleMatch: false,
+			sampleDomain:    "bit.ly",
+			includeSubs:     true,
+		},
+		{
+			name:      "无效集合名返回错误",
+			setName:   PredefinedSet("nonexistent_set"),
+			allowSet:  false,
+			listType:  types.Blacklist,
+			wantErr:   true,
+			wantErrIs: ErrInvalidPredefinedSet,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			acl := NewDomainACL([]string{}, tt.listType, tt.includeSubs)
+			err := acl.AddPredefinedSet(tt.setName, tt.allowSet)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("期望错误，得到 nil")
+				}
+				if tt.wantErrIs != nil && !errors.Is(err, tt.wantErrIs) {
+					t.Fatalf("期望错误 %v，得到 %v", tt.wantErrIs, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("非期望错误: %v", err)
+			}
+			perm, _ := acl.Check(tt.sampleDomain)
+			if tt.wantSampleMatch {
+				// 命中应被拒（黑名单）/ 被允许（白名单）
+				wantPerm := types.Allowed
+				if tt.listType == types.Blacklist {
+					wantPerm = types.Denied
+				}
+				if perm != wantPerm {
+					t.Fatalf("期望 %s，得到 %s", wantPerm, perm)
+				}
+			} else {
+				// no-op：未添加，黑名单默认 Allowed
+				if tt.listType == types.Blacklist && perm != types.Allowed {
+					t.Fatalf("no-op 后黑名单应 Allowed，得到 %s", perm)
+				}
+			}
+		})
+	}
+}
+
+// TestNewDomainACLWithDefaults 测试带预定义集合的构造函数
+func TestNewDomainACLWithDefaults(t *testing.T) {
+	t.Run("黑名单阻止短链与一次性邮箱", func(t *testing.T) {
+		acl, err := NewDomainACLWithDefaults(
+			[]string{"malware.example.com"},
+			types.Blacklist,
+			true,
+			[]PredefinedSet{Shorteners, DisposableEmail},
+			false,
+		)
+		if err != nil {
+			t.Fatalf("非期望错误: %v", err)
+		}
+		for _, d := range []string{"bit.ly", "mailinator.com", "malware.example.com"} {
+			if perm, _ := acl.Check(d); perm != types.Denied {
+				t.Fatalf("期望 %s 被 Denied，得到 %s", d, perm)
+			}
+		}
+		// 不在列表中的域名应 Allowed
+		if perm, _ := acl.Check("innocent.example.org"); perm != types.Allowed {
+			t.Fatalf("期望 innocent 域 Allowed，得到 %s", perm)
+		}
+	})
+	t.Run("无效预定义集合名返回错误", func(t *testing.T) {
+		_, err := NewDomainACLWithDefaults(
+			[]string{},
+			types.Blacklist,
+			false,
+			[]PredefinedSet{PredefinedSet("nonexistent_set")},
+			false,
+		)
+		if err == nil || !errors.Is(err, ErrInvalidPredefinedSet) {
+			t.Fatalf("期望 ErrInvalidPredefinedSet，得到 %v", err)
+		}
+	})
+}
