@@ -118,6 +118,47 @@ func (m *Manager) SetDomainACL(domains []string, listType types.ListType, includ
 	m.acls[KindDomain] = domain.NewDomainACL(domains, listType, includeSubdomains)
 }
 
+// SetDomainACLWithDefaults 设置域名访问控制列表，并包含预定义的域名集合
+//
+// 参数:
+//   - domains: 自定义的域名列表
+//   - listType: 列表类型（黑名单或白名单）
+//   - includeSubdomains: 是否包含子域名匹配
+//   - predefinedSets: 要包含的预定义域名集合
+//     例如: []domain.PredefinedSet{domain.Shorteners, domain.DisposableEmail}
+//   - allowDefaultSets: 预定义集合的处理方式
+//   - 对于黑名单，false 表示阻止这些域名（添加到黑名单）
+//   - 对于白名单，true 表示允许这些域名（添加到白名单）
+//
+// 返回:
+//   - error: ErrInvalidPredefinedSet 指定的预定义集合不存在
+//
+// 此方法会覆盖之前设置的任何域名访问控制列表，适合用于快速创建具有安全防护的域名 ACL。
+//
+// 示例:
+//
+//	// 创建黑名单，阻止短链与一次性邮箱域名
+//	err := manager.SetDomainACLWithDefaults(
+//	    []string{"malware.example.com"},
+//	    types.Blacklist,
+//	    true,
+//	    []domain.PredefinedSet{
+//	        domain.Shorteners,
+//	        domain.DisposableEmail,
+//	    },
+//	    false,
+//	)
+func (m *Manager) SetDomainACLWithDefaults(domains []string, listType types.ListType, includeSubdomains bool, predefinedSets []domain.PredefinedSet, allowDefaultSets bool) error {
+	newACL, err := domain.NewDomainACLWithDefaults(domains, listType, includeSubdomains, predefinedSets, allowDefaultSets)
+	if err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.acls[KindDomain] = newACL
+	return nil
+}
+
 // SetIPACL 设置IP访问控制列表
 //
 // 参数:
@@ -512,6 +553,35 @@ func (m *Manager) AddPredefinedIPSet(setName ip.PredefinedSet, allowSet bool) er
 		return types.ErrNoACL
 	}
 	return ipA.AddPredefinedSet(setName, allowSet)
+}
+
+// AddPredefinedDomainSet 向现有的域名访问控制列表添加一个预定义域名集合
+// 如果当前没有设置域名访问控制列表，则会返回错误
+//
+// 参数:
+//   - setName: 预定义集合名称
+//     可用值: domain.Shorteners, domain.DisposableEmail, domain.AllMaliciousDomains 等
+//   - allowSet: 预定义集合的处理方式
+//   - 对于黑名单，false 表示阻止这些域名（添加到黑名单）
+//   - 对于白名单，true 表示允许这些域名（添加到白名单）
+//
+// 返回:
+//   - error: 可能的错误:
+//   - types.ErrNoACL: 如果未设置域名 ACL
+//   - domain.ErrInvalidPredefinedSet: 如果提供了无效的预定义集合名称
+//
+// 示例:
+//
+//	// 向黑名单添加短链域名（阻止访问）
+//	err := manager.AddPredefinedDomainSet(domain.Shorteners, false)
+//	// 向白名单添加可信 CDN 域名（允许访问）
+//	err := manager.AddPredefinedDomainSet(domain.TrustedCDN, true)
+func (m *Manager) AddPredefinedDomainSet(setName domain.PredefinedSet, allowSet bool) error {
+	domA := m.domainACL()
+	if domA == nil {
+		return types.ErrNoACL
+	}
+	return domA.AddPredefinedSet(setName, allowSet)
 }
 
 // AddAllSpecialNetworks 添加所有特殊网络到黑名单（用于安全防护）

@@ -1,12 +1,14 @@
 package acl
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/cyberspacesec/acl-skills/pkg/domain"
 	"github.com/cyberspacesec/acl-skills/pkg/ip"
 	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
@@ -643,4 +645,73 @@ func TestReset(t *testing.T) {
 	if len(manager.GetIPRanges()) > 0 {
 		t.Error("GetIPRanges() 在重置后应返回空列表")
 	}
+}
+
+// TestManager_SetDomainACLWithDefaults 测试 Manager 带预定义集合的域名 ACL 设置
+func TestManager_SetDomainACLWithDefaults(t *testing.T) {
+	t.Run("黑名单阻止短链域名", func(t *testing.T) {
+		m := NewManager()
+		err := m.SetDomainACLWithDefaults(
+			[]string{"malware.example.com"},
+			types.Blacklist,
+			true,
+			[]domain.PredefinedSet{domain.Shorteners},
+			false,
+		)
+		if err != nil {
+			t.Fatalf("非期望错误: %v", err)
+		}
+		// 短链域名应被拒
+		if perm, _ := m.CheckDomain("bit.ly"); perm != types.Denied {
+			t.Fatalf("期望 bit.ly Denied，得到 %s", perm)
+		}
+		// 自定义恶意域名应被拒
+		if perm, _ := m.CheckDomain("malware.example.com"); perm != types.Denied {
+			t.Fatalf("期望 malware.example.com Denied，得到 %s", perm)
+		}
+		// 无关域名应允许
+		if perm, _ := m.CheckDomain("innocent.example.org"); perm != types.Allowed {
+			t.Fatalf("期望 innocent Allowed，得到 %s", perm)
+		}
+	})
+	t.Run("无效预定义集合名返回错误", func(t *testing.T) {
+		m := NewManager()
+		err := m.SetDomainACLWithDefaults(
+			[]string{}, types.Blacklist, true,
+			[]domain.PredefinedSet{domain.PredefinedSet("nonexistent_set")}, false,
+		)
+		if err == nil || !errors.Is(err, domain.ErrInvalidPredefinedSet) {
+			t.Fatalf("期望 ErrInvalidPredefinedSet，得到 %v", err)
+		}
+	})
+}
+
+// TestManager_AddPredefinedDomainSet 测试向已存在域名 ACL 追加预定义集合
+func TestManager_AddPredefinedDomainSet(t *testing.T) {
+	t.Run("追加短链集合到现有黑名单", func(t *testing.T) {
+		m := NewManager()
+		m.SetDomainACL([]string{"malware.example.com"}, types.Blacklist, true)
+		err := m.AddPredefinedDomainSet(domain.Shorteners, false)
+		if err != nil {
+			t.Fatalf("非期望错误: %v", err)
+		}
+		if perm, _ := m.CheckDomain("bit.ly"); perm != types.Denied {
+			t.Fatalf("追加后期望 bit.ly Denied，得到 %s", perm)
+		}
+	})
+	t.Run("未设置域名ACL时返回ErrNoACL", func(t *testing.T) {
+		m := NewManager()
+		err := m.AddPredefinedDomainSet(domain.Shorteners, false)
+		if !errors.Is(err, types.ErrNoACL) {
+			t.Fatalf("期望 ErrNoACL，得到 %v", err)
+		}
+	})
+	t.Run("无效集合名返回ErrInvalidPredefinedSet", func(t *testing.T) {
+		m := NewManager()
+		m.SetDomainACL([]string{}, types.Blacklist, true)
+		err := m.AddPredefinedDomainSet(domain.PredefinedSet("nonexistent_set"), false)
+		if !errors.Is(err, domain.ErrInvalidPredefinedSet) {
+			t.Fatalf("期望 ErrInvalidPredefinedSet，得到 %v", err)
+		}
+	})
 }
