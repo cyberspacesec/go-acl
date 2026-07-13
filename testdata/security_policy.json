@@ -5,7 +5,12 @@
       "phishing-example.org"
     ],
     "listType": "blacklist",
-    "includeSubdomains": true
+    "includeSubdomains": true,
+    "predefinedSets": [
+      "shorteners",
+      "disposable_email"
+    ],
+    "allowPredefined": false
   },
   "ip": {
     "ranges": [
