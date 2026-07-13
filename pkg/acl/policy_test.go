@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cyberspacesec/acl-skills/pkg/config"
@@ -139,4 +140,57 @@ func TestApplyPolicy_WithFiles(t *testing.T) {
 	if perm, _ := manager.CheckIP("198.51.100.5"); perm != types.Denied {
 		t.Errorf("文件 IP 应 Denied，得到 %s", perm)
 	}
+}
+
+// TestApplyPolicy_DomainWithPredefined 测试从 Policy 注入带预定义集合的域名 ACL
+func TestApplyPolicy_DomainWithPredefined(t *testing.T) {
+	t.Run("黑名单带短链预定义集合", func(t *testing.T) {
+		m := NewManager()
+		pol := &config.Policy{
+			Domain: &config.DomainPolicy{
+				Domains:           []string{"malware.example.com"},
+				ListType:          "blacklist",
+				IncludeSubdomains: true,
+				PredefinedSets:    []string{"shorteners", "disposable_email"},
+				AllowPredefined:   false,
+			},
+		}
+		if err := m.ApplyPolicy(pol); err != nil {
+			t.Fatalf("非期望错误: %v", err)
+		}
+		// 短链域名应被拒
+		if perm, _ := m.CheckDomain("bit.ly"); perm != types.Denied {
+			t.Fatalf("期望 bit.ly Denied，得到 %s", perm)
+		}
+		// 一次性邮箱域名应被拒
+		if perm, _ := m.CheckDomain("mailinator.com"); perm != types.Denied {
+			t.Fatalf("期望 mailinator.com Denied，得到 %s", perm)
+		}
+		// 自定义恶意域名应被拒
+		if perm, _ := m.CheckDomain("malware.example.com"); perm != types.Denied {
+			t.Fatalf("期望 malware.example.com Denied，得到 %s", perm)
+		}
+		// 无关域名应允许
+		if perm, _ := m.CheckDomain("innocent.example.org"); perm != types.Allowed {
+			t.Fatalf("期望 innocent Allowed，得到 %s", perm)
+		}
+	})
+	t.Run("无效预定义集合名返回错误", func(t *testing.T) {
+		m := NewManager()
+		pol := &config.Policy{
+			Domain: &config.DomainPolicy{
+				Domains:        []string{},
+				ListType:       "blacklist",
+				PredefinedSets: []string{"nonexistent_set"},
+			},
+		}
+		err := m.ApplyPolicy(pol)
+		if err == nil {
+			t.Fatal("期望错误，得到 nil")
+		}
+		// 错误信息应来自 apply domain policy 包装
+		if !strings.Contains(err.Error(), "apply domain policy") {
+			t.Fatalf("错误应包装 apply domain policy，得到 %v", err)
+		}
+	})
 }

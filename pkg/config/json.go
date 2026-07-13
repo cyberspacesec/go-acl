@@ -8,10 +8,16 @@ import (
 // DomainPolicy 描述一份域名 ACL 配置
 //
 // ListType 取 "blacklist" 或 "whitelist"；IncludeSubdomains 控制子域名匹配。
+// PredefinedSets 引用预定义域名集合名（如 "shorteners"、"disposable_email"），
+// 与 Domains 合并注入；AllowPredefined 控制黑/白名单语义（与 IP 侧一致）。
 type DomainPolicy struct {
 	Domains           []string `json:"domains"`
 	ListType          string   `json:"listType"`
 	IncludeSubdomains bool     `json:"includeSubdomains"`
+	// PredefinedSets 引用预定义域名集合名，可选；为空时不注入预定义集合
+	PredefinedSets []string `json:"predefinedSets,omitempty"`
+	// AllowPredefined 预定义集合的处理方式：黑名单 false=阻止，白名单 true=允许
+	AllowPredefined bool `json:"allowPredefined,omitempty"`
 	// File 可选：从该文件加载域名规则，与 Domains 合并
 	File string `json:"file,omitempty"`
 }

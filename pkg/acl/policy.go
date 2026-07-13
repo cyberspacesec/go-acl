@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cyberspacesec/acl-skills/pkg/config"
+	"github.com/cyberspacesec/acl-skills/pkg/domain"
 	"github.com/cyberspacesec/acl-skills/pkg/ip"
 	"github.com/cyberspacesec/acl-skills/pkg/types"
 )
@@ -46,7 +47,18 @@ func (m *Manager) ApplyPolicy(p *config.Policy) error {
 			}
 			domains = append(domains, fileDomains...)
 		}
-		m.SetDomainACL(domains, listType, p.Domain.IncludeSubdomains)
+		var predefinedSets []domain.PredefinedSet
+		for _, name := range p.Domain.PredefinedSets {
+			predefinedSets = append(predefinedSets, domain.PredefinedSet(name))
+		}
+		// 有预定义集合用 SetDomainACLWithDefaults，否则用 SetDomainACL；一次性注入合并后的 domains
+		if len(predefinedSets) > 0 {
+			if err := m.SetDomainACLWithDefaults(domains, listType, p.Domain.IncludeSubdomains, predefinedSets, p.Domain.AllowPredefined); err != nil {
+				return fmt.Errorf("apply domain policy: %w", err)
+			}
+		} else {
+			m.SetDomainACL(domains, listType, p.Domain.IncludeSubdomains)
+		}
 	}
 
 	if p.IP != nil {
