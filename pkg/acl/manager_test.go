@@ -715,3 +715,20 @@ func TestManager_AddPredefinedDomainSet(t *testing.T) {
 		}
 	})
 }
+
+func TestManager_LookupIP(t *testing.T) {
+	m := NewManager()
+	// 未配置时返回 ErrNoACL
+	_, err := m.LookupIP("10.0.0.1")
+	if !errors.Is(err, types.ErrNoACL) {
+		t.Fatalf("期望 ErrNoACL，得到 %v", err)
+	}
+	// 配置后返回最长前缀
+	if err := m.SetIPACL([]string{"10.0.0.0/8", "10.1.0.0/16"}, types.Blacklist); err != nil {
+		t.Fatal(err)
+	}
+	got, err := m.LookupIP("10.1.2.3")
+	if err != nil || got != "10.1.0.0/16" {
+		t.Fatalf("期望 10.1.0.0/16 无错，得到 %q err=%v", got, err)
+	}
+}

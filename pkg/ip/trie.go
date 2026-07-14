@@ -19,9 +19,10 @@ type ipTrie struct {
 }
 
 type trieNode struct {
-	left     *trieNode // bit 0
-	right    *trieNode // bit 1
-	terminal bool      // 某 CIDR 前缀在此节点结束
+	left     *trieNode  // bit 0
+	right    *trieNode  // bit 1
+	terminal bool       // 某 CIDR 前缀在此节点结束
+	payload  *net.IPNet // 命中时对应的 CIDR（仅 terminal 为 true 时有效）
 }
 
 func newIPTrie() *ipTrie {
@@ -42,7 +43,7 @@ func (t *ipTrie) Insert(ipNet *net.IPNet) {
 			// 异常掩码，回退为完整 32 bit
 			ones = 32
 		}
-		insertPath(t.v4Root, ip4, ones)
+		insertPath(t.v4Root, ip4, ones, ipNet)
 		return
 	}
 
@@ -51,10 +52,11 @@ func (t *ipTrie) Insert(ipNet *net.IPNet) {
 	if bits != 128 {
 		ones = 128
 	}
-	insertPath(t.v6Root, ipNet.IP.To16(), ones)
+	insertPath(t.v6Root, ipNet.IP.To16(), ones, ipNet)
 }
 
-func insertPath(root *trieNode, ip []byte, ones int) {
+// insertPath 从 root 沿 ip 的前 ones 位下沉，末节点置 terminal 并存 payload
+func insertPath(root *trieNode, ip []byte, ones int, ipNet *net.IPNet) {
 	node := root
 	for i := 0; i < ones; i++ {
 		if getBit(ip, i) == 0 {
@@ -70,6 +72,7 @@ func insertPath(root *trieNode, ip []byte, ones int) {
 		}
 	}
 	node.terminal = true
+	node.payload = ipNet
 }
 
 // Contains 判断 ip 是否被任意已插入的网段覆盖
@@ -82,6 +85,41 @@ func (t *ipTrie) Contains(ip net.IP) bool {
 		return containsPath(t.v4Root, ip4, 32)
 	}
 	return containsPath(t.v6Root, ip.To16(), 128)
+}
+
+// Lookup 返回包含该 IP 的最长前缀匹配 CIDR；无匹配返回 nil
+func (t *ipTrie) Lookup(ip net.IP) *net.IPNet {
+	if ip == nil {
+		return nil
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		return lookupPath(t.v4Root, ip4, 32)
+	}
+	return lookupPath(t.v6Root, ip.To16(), 128)
+}
+
+// lookupPath 沿 IP 位下沉，记录最后一个 terminal 节点的 payload 作为最长匹配
+func lookupPath(root *trieNode, ip []byte, maxBits int) *net.IPNet {
+	if root == nil {
+		return nil
+	}
+	node := root
+	var match *net.IPNet
+	for i := 0; i < maxBits && node != nil; i++ {
+		if node.terminal {
+			match = node.payload
+		}
+		if getBit(ip, i) == 0 {
+			node = node.left
+		} else {
+			node = node.right
+		}
+	}
+	// 检查末节点本身（/32 或 /128 精确命中）
+	if node != nil && node.terminal {
+		match = node.payload
+	}
+	return match
 }
 
 func containsPath(root *trieNode, ip []byte, maxBits int) bool {

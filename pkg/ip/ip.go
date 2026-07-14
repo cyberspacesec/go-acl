@@ -391,6 +391,42 @@ func (a *IPACL) Check(ip string) (types.Permission, error) {
 	return types.DecideByListType(a.listType, matched), nil
 }
 
+// Lookup 返回包含该 IP 的最长前缀匹配 CIDR 规则串；无匹配返回 ""
+//
+// 参数:
+//   - ip: 要查询的IP地址
+//     例如: "192.168.1.1", "8.8.8.8", "2001:db8::1"
+//
+// 返回:
+//   - string: 命中的 CIDR 规则串（与 GetIPRanges 一致的规范化形式），无匹配时为 ""
+//   - error: 可能的错误:
+//   - ErrInvalidIP: 提供了无效的IP地址格式
+//
+// 与 Check 不同，Lookup 不依据黑/白名单模式判定权限，
+// 而是返回最长前缀匹配的具体 CIDR，便于规则反查与审计。
+//
+// 示例:
+//
+//	acl, _ := ip.NewIPACL([]string{"10.0.0.0/8", "10.1.0.0/16"}, types.Blacklist)
+//	cidr, _ := acl.Lookup("10.1.2.3") // 返回 "10.1.0.0/16"
+//	cidr, _ = acl.Lookup("10.2.0.1")  // 返回 "10.0.0.0/8"
+//	cidr, _ = acl.Lookup("192.168.0.1") // 返回 ""
+func (a *IPACL) Lookup(ip string) (string, error) {
+	// 解析IP地址（剥除 zone id，与 Check 保持一致的解析路径）
+	parsed := net.ParseIP(stripZone(strings.TrimSpace(ip)))
+	if parsed == nil {
+		return "", ErrInvalidIP
+	}
+
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	if ipNet := a.trie.Lookup(parsed); ipNet != nil {
+		return ipNet.String(), nil
+	}
+	return "", nil
+}
+
 // GetIPRanges 获取当前访问控制列表中的所有IP/CIDR
 //
 // 返回:

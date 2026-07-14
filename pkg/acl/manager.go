@@ -686,6 +686,34 @@ func (m *Manager) CheckIP(ip string) (types.Permission, error) {
 	return ipA.Check(ip)
 }
 
+// LookupIP 返回包含该 IP 的最长前缀匹配 CIDR 规则串
+//
+// 参数:
+//   - ip: 要查询的IP地址
+//     例如: "192.168.1.1", "8.8.8.8", "2001:db8::1"
+//
+// 返回:
+//   - string: 命中的 CIDR 规则串，无匹配时为 ""
+//   - error: 可能的错误:
+//   - types.ErrNoACL: 如果未设置IP ACL
+//   - ip.ErrInvalidIP: 如果提供了无效IP
+//
+// 与 CheckIP 不同，此方法不判定权限，而是返回最长前缀匹配的具体 CIDR，
+// 便于规则反查、审计与诊断。
+//
+// 示例:
+//
+//	manager.SetIPACL([]string{"10.0.0.0/8", "10.1.0.0/16"}, types.Blacklist)
+//	cidr, _ := manager.LookupIP("10.1.2.3") // 返回 "10.1.0.0/16"
+//	cidr, _ = manager.LookupIP("10.2.0.1")  // 返回 "10.0.0.0/8"
+func (m *Manager) LookupIP(ip string) (string, error) {
+	ipAcl := m.ipACL()
+	if ipAcl == nil {
+		return "", types.ErrNoACL
+	}
+	return ipAcl.Lookup(ip)
+}
+
 // GetIPRanges 获取当前IP访问控制列表中的所有IP范围
 //
 // 返回:
