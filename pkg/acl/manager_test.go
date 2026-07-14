@@ -731,4 +731,14 @@ func TestManager_LookupIP(t *testing.T) {
 	if err != nil || got != "10.1.0.0/16" {
 		t.Fatalf("期望 10.1.0.0/16 无错，得到 %q err=%v", got, err)
 	}
+	// 已配置但 IP 不落任何 CIDR → ("", nil)
+	got, err = m.LookupIP("8.8.8.8")
+	if err != nil || got != "" {
+		t.Fatalf("无匹配应返回 (\"\", nil)，得到 %q err=%v", got, err)
+	}
+	// 无效 IP → ErrInvalidIP
+	_, err = m.LookupIP("not-an-ip")
+	if !errors.Is(err, ip.ErrInvalidIP) {
+		t.Fatalf("期望 ErrInvalidIP，得到 %v", err)
+	}
 }
