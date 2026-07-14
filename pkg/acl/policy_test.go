@@ -194,3 +194,28 @@ func TestApplyPolicy_DomainWithPredefined(t *testing.T) {
 		}
 	})
 }
+
+// TestApplyPolicy_DomainWildcard 验证从 JSON Policy 注入通配规则 *.domain 的端到端语义
+func TestApplyPolicy_DomainWildcard(t *testing.T) {
+	m := NewManager()
+	pol := &config.Policy{
+		Domain: &config.DomainPolicy{
+			Domains:           []string{"*.evil.com"},
+			ListType:          "blacklist",
+			IncludeSubdomains: false,
+		},
+	}
+	if err := m.ApplyPolicy(pol); err != nil {
+		t.Fatalf("ApplyPolicy 失败: %v", err)
+	}
+	// 通配 *.evil.com 仅匹配子域，不含主域
+	if perm, _ := m.CheckDomain("phishing.evil.com"); perm != types.Denied {
+		t.Errorf("phishing.evil.com 应 Denied，得到 %s", perm)
+	}
+	if perm, _ := m.CheckDomain("evil.com"); perm != types.Allowed {
+		t.Errorf("evil.com 主域应 Allowed（仅子域），得到 %s", perm)
+	}
+	if perm, _ := m.CheckDomain("notevil.com"); perm != types.Allowed {
+		t.Errorf("notevil.com 应 Allowed，得到 %s", perm)
+	}
+}
