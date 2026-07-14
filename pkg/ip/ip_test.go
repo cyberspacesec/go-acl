@@ -67,7 +67,7 @@ func TestNewIPACL(t *testing.T) {
 			ipRanges:  []string{"192.168.1.0/33"},
 			listType:  types.Blacklist,
 			wantErr:   true,
-			errType:   ErrInvalidIP,
+			errType:   ErrInvalidCIDR,
 			emptyList: false,
 		},
 		{
@@ -193,6 +193,22 @@ func TestIPACL_Add(t *testing.T) {
 			errType:      ErrInvalidCIDR,
 			expectedSize: 7,
 		},
+		{
+			name:         "添加IPv4掩码越界",
+			acl:          initialACL,
+			ipToAdd:      []string{"192.168.1.0/33"},
+			wantErr:      true,
+			errType:      ErrInvalidCIDR,
+			expectedSize: 7,
+		},
+		{
+			name:         "添加IPv6掩码越界",
+			acl:          initialACL,
+			ipToAdd:      []string{"2001:db8::/129"},
+			wantErr:      true,
+			errType:      ErrInvalidCIDR,
+			expectedSize: 7,
+		},
 	}
 
 	for _, tt := range tests {
@@ -203,6 +219,14 @@ func TestIPACL_Add(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Add() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+
+			if tt.wantErr && tt.errType != nil {
+				// 精确断言错误类型（修复此前 errType 从未被检查的死字段）
+				if !errors.Is(err, tt.errType) {
+					t.Errorf("Add() error = %v, 期望错误类型 %v", err, tt.errType)
+					return
+				}
 			}
 
 			if !tt.wantErr {

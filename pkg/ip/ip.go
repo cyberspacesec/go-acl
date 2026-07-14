@@ -521,9 +521,12 @@ func (a *IPACL) matchIP(ip net.IP) bool {
 func parseIPRange(ipStr string) (*IPRange, error) {
 	ipStr = strings.TrimSpace(ipStr)
 
-	// 首先尝试作为CIDR解析
-	ip, ipNet, err := net.ParseCIDR(ipStr)
-	if err == nil {
+	// 含 "/" 视为 CIDR：解析失败一律返回 ErrInvalidCIDR，不回退到单 IP 解析
+	if strings.Contains(ipStr, "/") {
+		ip, ipNet, err := net.ParseCIDR(ipStr)
+		if err != nil {
+			return nil, ErrInvalidCIDR
+		}
 		return &IPRange{
 			Original: ipStr,
 			IP:       ip,
@@ -531,8 +534,8 @@ func parseIPRange(ipStr string) (*IPRange, error) {
 		}, nil
 	}
 
-	// 然后尝试作为单个IP解析
-	ip = net.ParseIP(ipStr)
+	// 否则作为单个 IP 解析
+	ip := net.ParseIP(ipStr)
 	if ip == nil {
 		return nil, ErrInvalidIP
 	}
@@ -546,7 +549,7 @@ func parseIPRange(ipStr string) (*IPRange, error) {
 		// IPv6使用/128掩码
 		mask = net.CIDRMask(128, 128)
 	}
-	ipNet = &net.IPNet{
+	ipNet := &net.IPNet{
 		IP:   ip,
 		Mask: mask,
 	}
