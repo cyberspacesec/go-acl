@@ -1317,3 +1317,35 @@ func TestDomainACL_WildcardWithSubdomainsFlag(t *testing.T) {
 		t.Errorf("sub.evil.com 应 Denied，得到 %s", perm)
 	}
 }
+
+// TestDomainACL_RemoveNonexistentWildcard 验证移除不存在的通配规则返回 ErrDomainNotFound
+func TestDomainACL_RemoveNonexistentWildcard(t *testing.T) {
+	acl := NewDomainACL([]string{"*.evil.com"}, types.Blacklist, false)
+	err := acl.Remove("*.notevil.com")
+	if !errors.Is(err, ErrDomainNotFound) {
+		t.Fatalf("移除不存在的通配应返回 ErrDomainNotFound，得到 %v", err)
+	}
+	// 原有通配规则不受影响
+	if perm, _ := acl.Check("sub.evil.com"); perm != types.Denied {
+		t.Errorf("原有 *.evil.com 仍应命中 sub.evil.com，得到 %s", perm)
+	}
+}
+
+// TestDomainACL_MultipleWildcards 验证多条通配规则互不误匹配
+func TestDomainACL_MultipleWildcards(t *testing.T) {
+	acl := NewDomainACL([]string{"*.evil.com", "*.bad.org"}, types.Blacklist, false)
+	// 各自子域命中
+	if perm, _ := acl.Check("x.evil.com"); perm != types.Denied {
+		t.Errorf("x.evil.com 应 Denied，得到 %s", perm)
+	}
+	if perm, _ := acl.Check("y.bad.org"); perm != types.Denied {
+		t.Errorf("y.bad.org 应 Denied，得到 %s", perm)
+	}
+	// 相邻域名不误匹配任一通配
+	if perm, _ := acl.Check("notevil.com"); perm != types.Allowed {
+		t.Errorf("notevil.com 应 Allowed，得到 %s", perm)
+	}
+	if perm, _ := acl.Check("notbad.org"); perm != types.Allowed {
+		t.Errorf("notbad.org 应 Allowed，得到 %s", perm)
+	}
+}
