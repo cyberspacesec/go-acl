@@ -837,3 +837,23 @@ func TestIPv6EquivalentForms(t *testing.T) {
 		t.Errorf("等价 IPv6 应去重为 1 条，得到 %d 条: %v", got, acl.GetIPRanges())
 	}
 }
+
+// TestIPv6RemoveEquivalentForm 验证 Remove 用等价形式可成功移除
+func TestIPv6RemoveEquivalentForm(t *testing.T) {
+	acl, err := NewIPACL([]string{"2001:db8::1"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	// 用全写形式移除压缩形式添加的规则，应能命中（规范化后为同一条）
+	if err := acl.Remove("2001:0db8:0000:0000:0000:0000:0000:0001"); err != nil {
+		t.Fatalf("用等价形式移除应成功，得到错误: %v", err)
+	}
+	// 移除后规则集合应为空
+	if got := len(acl.GetIPRanges()); got != 0 {
+		t.Errorf("移除后应为 0 条，得到 %d 条: %v", got, acl.GetIPRanges())
+	}
+	// 移除后该 IP 应改为 Allowed（黑名单未命中）
+	if perm, _ := acl.Check("2001:db8::1"); perm != types.Allowed {
+		t.Errorf("移除后 2001:db8::1 应 Allowed，得到 %s", perm)
+	}
+}
