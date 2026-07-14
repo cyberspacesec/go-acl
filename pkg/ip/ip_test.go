@@ -778,3 +778,62 @@ func TestIPACL_matchIP(t *testing.T) {
 		})
 	}
 }
+
+// TestIPv6SubnetBoundary 验证 IPv6 子网边界匹配
+func TestIPv6SubnetBoundary(t *testing.T) {
+	acl, err := NewIPACL([]string{"2001:db8::/32"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	tests := []struct {
+		name string
+		ip   string
+		want types.Permission
+	}{
+		{"网络地址", "2001:db8::", types.Denied},
+		{"范围内首地址", "2001:db8::1", types.Denied},
+		{"范围内末地址", "2001:db8:ffff:ffff:ffff:ffff:ffff:ffff", types.Denied},
+		{"范围外下一地址", "2001:db9::", types.Allowed},
+		{"unspecified", "::", types.Allowed},
+		{"link-local 单点未在规则中", "fe80::1", types.Allowed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			perm, err := acl.Check(tt.ip)
+			if err != nil {
+				t.Fatalf("Check(%s) 错误: %v", tt.ip, err)
+			}
+			if perm != tt.want {
+				t.Errorf("Check(%s) = %s, 期望 %s", tt.ip, perm, tt.want)
+			}
+		})
+	}
+}
+
+// TestIPv6ZoneID 验证 zone id 剥离后仍可匹配
+func TestIPv6ZoneID(t *testing.T) {
+	acl, err := NewIPACL([]string{"fe80::1"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	// 带 zone id 的查询应剥除后匹配
+	perm, err := acl.Check("fe80::1%eth0")
+	if err != nil {
+		t.Fatalf("Check(fe80::1%%eth0) 错误: %v", err)
+	}
+	if perm != types.Denied {
+		t.Errorf("期望 fe80::1%%eth0 Denied，得到 %s", perm)
+	}
+}
+
+// TestIPv6EquivalentForms 验证等价表示形式去重一致
+func TestIPv6EquivalentForms(t *testing.T) {
+	// 全写与压缩形式应被识别为同一条，去重后仅 1 条
+	acl, err := NewIPACL([]string{"2001:db8::1", "2001:0db8:0000:0000:0000:0000:0000:0001"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	if got := len(acl.GetIPRanges()); got != 1 {
+		t.Errorf("等价 IPv6 应去重为 1 条，得到 %d 条: %v", got, acl.GetIPRanges())
+	}
+}

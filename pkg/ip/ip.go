@@ -24,13 +24,13 @@ var (
 // IPRange 表示一个IP范围，可以是单个IP或CIDR
 //
 // IPRange 包含:
-//   - Original: 原始输入的IP/CIDR字符串
+//   - Original: 规范化后的IP/CIDR字符串（剥除 zone id，等价形式统一）
 //   - IP: 解析后的IP地址
 //   - IPNet: 对于CIDR，表示网络范围；对于单个IP，表示包含单个IP的网络
 //
 // 该结构体支持IPv4和IPv6地址。
 type IPRange struct {
-	Original string     // 原始输入的IP/CIDR字符串
+	Original string     // 规范化后的IP/CIDR字符串（用于去重与匹配）
 	IP       net.IP     // 解析后的IP地址
 	IPNet    *net.IPNet // 网络范围
 }
@@ -126,11 +126,27 @@ func NewIPACL(ipRanges []string, listType types.ListType) (*IPACL, error) {
 			return nil, err
 		}
 
+		// 去重：规范化后相同的等价形式（如 IPv6 全写/压缩写法）只保留一条
+		if existsInRanges(acl.ranges, ipRange.Original) {
+			continue
+		}
+
 		acl.ranges = append(acl.ranges, *ipRange)
 		acl.trie.Insert(ipRange.IPNet)
 	}
 
 	return acl, nil
+}
+
+// existsInRanges 判断规范化后的 Original 是否已存在于 ranges 中。
+// 与 Add 的 seen 去重逻辑保持一致，确保等价形式不重复添加。
+func existsInRanges(ranges []IPRange, original string) bool {
+	for _, r := range ranges {
+		if r.Original == original {
+			return true
+		}
+	}
+	return false
 }
 
 // Add 添加一个或多个IP或CIDR到访问控制列表
@@ -217,8 +233,8 @@ func (a *IPACL) Add(ipRanges ...string) error {
 //   - error: 可能的错误:
 //   - ErrIPNotFound: 要移除的IP不在列表中
 //
-// 该方法使用原始字符串进行匹配，因此要确保使用与添加时完全相同的格式。
-// 如果任何一个IP不在列表中，将返回ErrIPNotFound错误，但在列表中的部分仍然会被移除。
+// 该方法使用规范化字符串进行匹配，因此等价表示形式（如 IPv6 全写与压缩写法）
+// 可互相匹配。如果任何一个IP不在列表中，将返回ErrIPNotFound错误，但在列表中的部分仍然会被移除。
 //
 // 示例:
 //
@@ -257,19 +273,22 @@ func (a *IPACL) Remove(ipRanges ...string) error {
 		return ErrIPNotFound
 	}
 
-	// 跟踪是否找到所有要移除的IP
+	// 跟踪是否找到所有要移除的IP（用规范化形式作 key，等价形式视为同一条）
 	found := make(map[string]bool, len(ipRanges))
 	for _, ipStr := range ipRanges {
-		found[ipStr] = false
+		if strings.TrimSpace(ipStr) == "" {
+			continue
+		}
+		found[normalizeIPString(ipStr)] = false
 	}
 
 	// 创建新的IP范围列表，排除要移除的
 	var newRanges []IPRange
 	for _, existingRange := range a.ranges {
 		keep := true
-		for ipStr := range found {
-			if existingRange.Original == ipStr {
-				found[ipStr] = true
+		for normKey := range found {
+			if existingRange.Original == normKey {
+				found[normKey] = true
 				keep = false
 				break
 			}
@@ -280,8 +299,8 @@ func (a *IPACL) Remove(ipRanges ...string) error {
 	}
 
 	// 检查是否所有IP都找到了
-	for ipStr, wasFound := range found {
-		if !wasFound && strings.TrimSpace(ipStr) != "" {
+	for normKey, wasFound := range found {
+		if !wasFound && strings.TrimSpace(normKey) != "" {
 			// 虽然有未找到的IP，但仍更新列表
 			a.ranges = newRanges
 			a.rebuildTrie()
@@ -356,8 +375,8 @@ func (a *IPACL) rebuildTrie() {
 //	    log.Println("IP不在白名单中，拒绝访问")
 //	}
 func (a *IPACL) Check(ip string) (types.Permission, error) {
-	// 解析IP地址
-	parsedIP := net.ParseIP(strings.TrimSpace(ip))
+	// 解析IP地址（剥除 zone id，如 fe80::1%eth0 → fe80::1，net.ParseIP 不支持 zone）
+	parsedIP := net.ParseIP(stripZone(strings.TrimSpace(ip)))
 	if parsedIP == nil {
 		return types.Denied, ErrInvalidIP
 	}
@@ -378,7 +397,8 @@ func (a *IPACL) Check(ip string) (types.Permission, error) {
 //   - []string: IP/CIDR列表
 //     例如: []string{"192.168.1.1", "10.0.0.0/8", "2001:db8::/32"}
 //
-// 返回的是原始输入的字符串形式，而不是标准化后的形式。
+// 返回的是规范化后的字符串形式（net.IP.String() / ipNet.String()），
+// 等价表示形式会被归一为同一条。
 //
 // 示例:
 //
@@ -507,35 +527,39 @@ func (a *IPACL) matchIP(ip net.IP) bool {
 //     例如: "192.168.1.1", "10.0.0.0/8", "2001:db8::/32"
 //
 // 返回:
-//   - *IPRange: 解析后的IPRange对象，包含原始字符串、IP和IPNet
+//   - *IPRange: 解析后的IPRange对象，包含规范化字符串、IP和IPNet
 //   - error: 可能的错误:
 //   - ErrInvalidIP: 提供了无效的IP地址格式
 //   - ErrInvalidCIDR: 提供了无效的CIDR格式
 //
 // 解析逻辑:
-// 1. 首先尝试作为CIDR解析
-// 2. 如果不是CIDR，则尝试作为单个IP解析
-// 3. 对于单个IP，创建一个只包含该IP的IPNet
+// 1. 先用 normalizeIPString 规范化（剥除 zone id，等价形式统一），作为 Original
+// 2. 含 "/" 视为 CIDR：Original 用 ipNet.String()（网络地址/掩码）
+// 3. 否则作为单个 IP 解析：Original 用 ip.String()（规范形式）
+// 4. 对于单个IP，创建一个只包含该IP的IPNet
+//
+// Original 采用规范化形式，使等价表示（如 2001:db8::1 与
+// 2001:0db8::0000:0000:0000:0000:0001）在 Add 去重与 Remove 匹配时被视为同一条。
 //
 // 这是一个内部辅助方法，用于解析和验证IP和CIDR格式。
 func parseIPRange(ipStr string) (*IPRange, error) {
-	ipStr = strings.TrimSpace(ipStr)
+	normalized := normalizeIPString(ipStr)
 
 	// 含 "/" 视为 CIDR：解析失败一律返回 ErrInvalidCIDR，不回退到单 IP 解析
-	if strings.Contains(ipStr, "/") {
-		ip, ipNet, err := net.ParseCIDR(ipStr)
+	if strings.Contains(normalized, "/") {
+		ip, ipNet, err := net.ParseCIDR(normalized)
 		if err != nil {
 			return nil, ErrInvalidCIDR
 		}
 		return &IPRange{
-			Original: ipStr,
+			Original: ipNet.String(),
 			IP:       ip,
 			IPNet:    ipNet,
 		}, nil
 	}
 
 	// 否则作为单个 IP 解析
-	ip := net.ParseIP(ipStr)
+	ip := net.ParseIP(normalized)
 	if ip == nil {
 		return nil, ErrInvalidIP
 	}
@@ -555,10 +579,43 @@ func parseIPRange(ipStr string) (*IPRange, error) {
 	}
 
 	return &IPRange{
-		Original: ipStr,
+		Original: ip.String(),
 		IP:       ip,
 		IPNet:    ipNet,
 	}, nil
+}
+
+// normalizeIPString 将 IP/CIDR 字符串规范化为稳定形式，
+// 用于 Add 去重与 Remove 匹配，避免 2001:db8::1 与 2001:0db8::0001 被视为不同条目。
+//
+// 规则：剥除 zone id（如 %eth0），单 IP 用 net.IP.String() 规范化，
+// CIDR 用 "网络地址/掩码" 形式。解析失败时原样返回（交由调用方报错）。
+func normalizeIPString(s string) string {
+	s = strings.TrimSpace(s)
+	// 剥离 zone id：net.ParseIP 不支持 zone，fe80::1%eth0 → fe80::1
+	s = stripZone(s)
+	if strings.Contains(s, "/") {
+		ip, ipNet, err := net.ParseCIDR(s)
+		if err != nil {
+			return s
+		}
+		_ = ip
+		return ipNet.String()
+	}
+	ip := net.ParseIP(s)
+	if ip == nil {
+		return s
+	}
+	return ip.String()
+}
+
+// stripZone 剥离 IPv6 zone id（如 fe80::1%eth0 → fe80::1）。
+// net.ParseIP 与 net.ParseCIDR 均不支持 zone id，需调用前剥除。
+func stripZone(s string) string {
+	if idx := strings.Index(s, "%"); idx != -1 {
+		return s[:idx]
+	}
+	return s
 }
 
 // getPredefinedSet 获取预定义的IP集合
