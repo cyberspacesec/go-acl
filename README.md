@@ -192,6 +192,10 @@ manager.SetDomainAcl([]string{
 
 // 检查域名
 permission, err := manager.CheckDomain("api.example.com")
+
+// 通配符规则 *.example.com 仅匹配子域，不含主域本身（适合"放行主站、阻止子域"场景）
+manager.SetDomainACL([]string{"*.evil.com"}, types.Blacklist, false)
+// evil.com 放行，phishing.evil.com 阻止
 ```
 
 ### IP控制
@@ -207,6 +211,11 @@ manager.SetIPAcl([]string{
 // 动态添加和移除IP
 manager.AddIP("8.8.8.8", "8.8.4.4")
 manager.RemoveIP("8.8.8.8")
+
+// IPv6 子网与 IPv4 混合；zone id 自动剥离
+manager.SetIPACL([]string{"10.0.0.0/8", "2001:db8::/32"}, types.Blacklist)
+// 反查 IP 所属最长前缀 CIDR
+cidr, _ := manager.LookupIP("10.1.2.3") // "10.1.0.0/16"
 ```
 
 ### 文件导入导出
@@ -316,6 +325,8 @@ manager.AddPredefinedDomainSet(domain.TrustedCDN, true) // 白名单 + true = �
 | **自定义ACL扩展** | 演示注册自定义 ACL 实现到 Manager | [查看示例](examples/07_custom_acl/) |
 | **HTTP 中间件** | 演示一份 JSON 配置 + 一行中间件完成访问控制 | [查看示例](examples/08_http_middleware/) |
 | **预定义域名集合** | 演示短链/一次性邮箱/可信 CDN 等域名集合的外联管控 | [查看示例](examples/09_domain_predefined_sets/) |
+| **子域名通配 ACL** | 演示 *.domain 仅子域访问控制 | [查看示例](examples/10_subdomain_acl/) |
+| **IPv6 子网与反查** | 演示 IPv6 子网匹配与最长前缀反查 | [查看示例](examples/11_ipv6_subnet_acl/) |
 
 查看[示例目录](examples/)获取完整示例代码。
 

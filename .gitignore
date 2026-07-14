@@ -4,6 +4,8 @@
 # 示例编译产物（go build 在仓库根产生的同名二进制）
 /08_http_middleware
 /09_domain_predefined_sets
+/10_subdomain_acl
+/11_ipv6_subnet_acl
 # Certificate files (for certificate-hacker)
 # Configuration files with sensitive data
 # Coverage reports
