@@ -98,6 +98,7 @@ package main
 import (
     "fmt"
     "github.com/cyberspacesec/acl-skills/pkg/acl"
+    "github.com/cyberspacesec/acl-skills/pkg/ip"
     "github.com/cyberspacesec/acl-skills/pkg/types"
 )
 
@@ -106,13 +107,13 @@ func main() {
     manager := acl.NewManager()
     
     // 配置域名黑名单
-    manager.SetDomainAcl([]string{
+    manager.SetDomainACL([]string{
         "malicious-site.com",
         "phishing-example.org",
     }, types.Blacklist, true) // true表示阻止子域名
-    
+
     // 配置IP黑名单（包含一些内网地址）
-    manager.SetIPAclWithDefaults(
+    manager.SetIPACLWithDefaults(
         []string{"203.0.113.0/24"}, // 自定义IP范围
         types.Blacklist,
         []ip.PredefinedSet{ip.PrivateNetworks}, // 预定义集合: 所有私有网络
@@ -185,7 +186,7 @@ graph TD
 
 ```go
 // 创建域名白名单 (只允许特定域名及其子域名访问)
-manager.SetDomainAcl([]string{
+manager.SetDomainACL([]string{
     "example.com",
     "trusted-partner.org",
 }, types.Whitelist, true)
@@ -202,7 +203,7 @@ manager.SetDomainACL([]string{"*.evil.com"}, types.Blacklist, false)
 
 ```go
 // 创建IP黑名单
-manager.SetIPAcl([]string{
+manager.SetIPACL([]string{
     "192.168.1.100",  // 单个IP
     "10.0.0.0/8",     // CIDR格式
     "2001:db8::/32",  // IPv6支持
@@ -222,10 +223,10 @@ cidr, _ := manager.LookupIP("10.1.2.3") // "10.1.0.0/16"
 
 ```go
 // 从文件加载IP规则
-manager.SetIPAclFromFile("path/to/blacklist.txt", types.Blacklist)
+manager.SetIPACLFromFile("path/to/blacklist.txt", types.Blacklist)
 
 // 保存当前规则到文件
-manager.SaveIPAclToFile("path/to/saved_blacklist.txt", true)
+manager.SaveIPACLToFile("path/to/saved_blacklist.txt", true)
 ```
 
 ## 🧪 预定义IP集合
@@ -245,7 +246,7 @@ go-acl内置了多种预定义IP集合，用于常见的安全防护场景：
 
 ```go
 // 安全增强配置 - 阻止访问所有内部网络
-manager.SetIPAclWithDefaults(
+manager.SetIPACLWithDefaults(
     []string{},
     types.Blacklist,
     []ip.PredefinedSet{
