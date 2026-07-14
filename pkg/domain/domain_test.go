@@ -518,6 +518,15 @@ func TestDomainACL_Check(t *testing.T) {
 			expectedPerm:      types.Allowed,
 			expectErr:         nil,
 		},
+		{
+			name:              "黑名单-末尾点FQDN匹配普通规则",
+			domains:           []string{"blocked.com"},
+			listType:          types.Blacklist,
+			includeSubdomains: false,
+			domainToCheck:     "blocked.com.",
+			expectedPerm:      types.Denied,
+			expectErr:         nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -696,6 +705,8 @@ func TestNormalizeDomain(t *testing.T) {
 			domain:   "www.",
 			expected: "",
 		},
+		{name: "末尾点-FQDN", domain: "example.com.", expected: "example.com"},
+		{name: "末尾点-多重点", domain: "sub.example.com.", expected: "sub.example.com"},
 	}
 
 	for _, tt := range tests {

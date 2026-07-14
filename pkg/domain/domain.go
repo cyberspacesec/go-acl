@@ -527,5 +527,8 @@ func normalizeDomain(domain string) string {
 	// 移除www前缀
 	domain = strings.TrimPrefix(domain, "www.")
 
+	// 剥除末尾点（FQDN 根标签），使 example.com. 与 example.com 等价
+	domain = strings.TrimSuffix(domain, ".")
+
 	return domain
 }
