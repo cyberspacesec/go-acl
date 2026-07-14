@@ -1254,3 +1254,66 @@ func TestNewDomainACLWithDefaults(t *testing.T) {
 		}
 	})
 }
+
+// TestDomainACL_Wildcard 验证 *.example.com 仅匹配子域不含主域
+func TestDomainACL_Wildcard(t *testing.T) {
+	acl := NewDomainACL([]string{"*.evil.com"}, types.Blacklist, false)
+	// 子域命中
+	if perm, _ := acl.Check("sub.evil.com"); perm != types.Denied {
+		t.Errorf("sub.evil.com 应 Denied，得到 %s", perm)
+	}
+	// 多层子域命中
+	if perm, _ := acl.Check("a.b.evil.com"); perm != types.Denied {
+		t.Errorf("a.b.evil.com 应 Denied，得到 %s", perm)
+	}
+	// 主域本身不命中（仅子域语义）
+	if perm, _ := acl.Check("evil.com"); perm != types.Allowed {
+		t.Errorf("evil.com 主域应 Allowed（仅子域），得到 %s", perm)
+	}
+	// 相邻域名不误匹配
+	if perm, _ := acl.Check("notevil.com"); perm != types.Allowed {
+		t.Errorf("notevil.com 应 Allowed，得到 %s", perm)
+	}
+}
+
+// TestDomainACL_WildcardAndExactCoexist 验证通配与精确规则共存
+func TestDomainACL_WildcardAndExactCoexist(t *testing.T) {
+	acl := NewDomainACL([]string{"*.evil.com", "evil.com"}, types.Blacklist, false)
+	// 主域被精确规则阻止
+	if perm, _ := acl.Check("evil.com"); perm != types.Denied {
+		t.Errorf("evil.com 精确规则应 Denied，得到 %s", perm)
+	}
+	// 子域被通配规则阻止
+	if perm, _ := acl.Check("x.evil.com"); perm != types.Denied {
+		t.Errorf("x.evil.com 通配应 Denied，得到 %s", perm)
+	}
+	// GetDomains 返回两类规则
+	domains := acl.GetDomains()
+	if len(domains) != 2 {
+		t.Errorf("应返回 2 条规则，得到 %d: %v", len(domains), domains)
+	}
+}
+
+// TestDomainACL_RemoveWildcard 验证移除通配规则
+func TestDomainACL_RemoveWildcard(t *testing.T) {
+	acl := NewDomainACL([]string{"*.evil.com"}, types.Blacklist, false)
+	if err := acl.Remove("*.evil.com"); err != nil {
+		t.Fatalf("移除失败: %v", err)
+	}
+	// 移除后子域不再命中
+	if perm, _ := acl.Check("sub.evil.com"); perm != types.Allowed {
+		t.Errorf("移除后 sub.evil.com 应 Allowed，得到 %s", perm)
+	}
+}
+
+// TestDomainACL_WildcardWithSubdomainsFlag 验证通配在 includeSubdomains=true 下仍仅匹配子域
+func TestDomainACL_WildcardWithSubdomainsFlag(t *testing.T) {
+	acl := NewDomainACL([]string{"*.evil.com"}, types.Blacklist, true)
+	// 即使 includeSubdomains=true，通配 *. 仍不含主域本身
+	if perm, _ := acl.Check("evil.com"); perm != types.Allowed {
+		t.Errorf("通配 *.evil.com 不应命中主域 evil.com，得到 %s", perm)
+	}
+	if perm, _ := acl.Check("sub.evil.com"); perm != types.Denied {
+		t.Errorf("sub.evil.com 应 Denied，得到 %s", perm)
+	}
+}

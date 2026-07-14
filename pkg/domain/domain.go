@@ -39,7 +39,9 @@ type DomainACL struct {
 	mu      sync.RWMutex
 	domains []string
 	// domainSet 是 domains 的 set 镜像，用于 includeSubdomains=false 时的 O(1) 精确匹配
-	domainSet         map[string]struct{}
+	domainSet map[string]struct{}
+	// wildcardSuffixes 存放通配规则 *.example.com 的裸后缀，用于仅子域名匹配（不含主域本身）
+	wildcardSuffixes  []string
 	listType          types.ListType
 	includeSubdomains bool
 }
@@ -175,7 +177,27 @@ func (d *DomainACL) Add(domains ...string) error {
 			continue
 		}
 
-		// 检查是否已存在
+		// 通配规则 *.example.com → 存裸后缀，仅匹配其子域（不含主域本身）
+		if isWildcardDomain(normalizedDomain) {
+			suffix := stripWildcard(normalizedDomain)
+			if suffix == "" {
+				continue
+			}
+			// 去重
+			found := false
+			for _, existing := range d.wildcardSuffixes {
+				if existing == suffix {
+					found = true
+					break
+				}
+			}
+			if !found {
+				d.wildcardSuffixes = append(d.wildcardSuffixes, suffix)
+			}
+			continue
+		}
+
+		// 普通规则进主表
 		exists := false
 		for _, existingDomain := range d.domains {
 			if existingDomain == normalizedDomain {
@@ -228,22 +250,49 @@ func (d *DomainACL) Remove(domains ...string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// 构建待删除的标准化集合
+	// 构建待删除的标准化集合，区分通配与普通
+	var wildcardToRemove []string
 	toRemove := make(map[string]struct{}, len(domains))
 	for _, dom := range domains {
 		n := normalizeDomain(dom)
 		if n == "" {
 			continue
 		}
-		toRemove[n] = struct{}{}
+		if isWildcardDomain(n) {
+			wildcardToRemove = append(wildcardToRemove, stripWildcard(n))
+		} else {
+			toRemove[n] = struct{}{}
+		}
 	}
 	// 传入了参数但全部标准化后为空：视为未找到，保持与旧版一致的错误语义
-	if len(toRemove) == 0 {
+	if len(toRemove) == 0 && len(wildcardToRemove) == 0 {
 		return ErrDomainNotFound
 	}
 
-	var newDomains []string
 	removed := 0
+
+	// 先处理通配删除（就地过滤复用底层数组）
+	if len(wildcardToRemove) > 0 {
+		newSuffixes := d.wildcardSuffixes[:0]
+		for _, existing := range d.wildcardSuffixes {
+			drop := false
+			for _, w := range wildcardToRemove {
+				if existing == w {
+					drop = true
+					break
+				}
+			}
+			if drop {
+				removed++
+				continue
+			}
+			newSuffixes = append(newSuffixes, existing)
+		}
+		d.wildcardSuffixes = newSuffixes
+	}
+
+	// 再处理普通删除
+	var newDomains []string
 	for _, existing := range d.domains {
 		if _, drop := toRemove[existing]; drop {
 			removed++
@@ -322,8 +371,11 @@ func (d *DomainACL) GetDomains() []string {
 	defer d.mu.RUnlock()
 
 	// 返回副本以防止外部修改
-	result := make([]string, len(d.domains))
-	copy(result, d.domains)
+	result := make([]string, 0, len(d.domains)+len(d.wildcardSuffixes))
+	result = append(result, d.domains...)
+	for _, s := range d.wildcardSuffixes {
+		result = append(result, "*."+s)
+	}
 	return result
 }
 
@@ -426,6 +478,13 @@ func (d *DomainACL) matchDomain(domain string) bool {
 		return false
 	}
 
+	// 通配规则：*.example.com 仅匹配 example.com 的子域，不含 example.com 本身
+	for _, suffix := range d.wildcardSuffixes {
+		if strings.HasSuffix(domain, "."+suffix) {
+			return true
+		}
+	}
+
 	// 不含子域名匹配：O(1) 精确查找
 	if !d.includeSubdomains {
 		if d.domainSet != nil {
@@ -453,6 +512,16 @@ func (d *DomainACL) matchDomain(domain string) bool {
 	}
 
 	return false
+}
+
+// isWildcardDomain 判断规则是否为通配形式 *.example.com
+func isWildcardDomain(d string) bool {
+	return strings.HasPrefix(d, "*.")
+}
+
+// stripWildcard 去除 *. 前缀，返回裸后缀
+func stripWildcard(d string) string {
+	return strings.TrimPrefix(d, "*.")
 }
 
 // normalizeDomain 标准化域名，删除不必要的部分
