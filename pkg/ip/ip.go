@@ -666,12 +666,14 @@ func rangeToCIDRs(start, end net.IP) ([]*net.IPNet, error) {
 	bigOne := big.NewInt(1)
 	var result []*net.IPNet
 	for cur.Cmp(last) <= 0 {
-		// 当前地址在 bitLen 位空间内的「最低置位」决定对齐粒度：
-		// cur 的低 trailing 个二进制位为 0，则可对齐到前缀 (bitLen - trailing)。
-		// big.Int.TrailingZeroBits 返回最低置位之前 0 的个数（cur=0 时返回 0）。
-		trailing := int(cur.TrailingZeroBits())
-		if trailing >= bitLen {
-			trailing = bitLen - 1 // cur 为全 0 的极端情况，取最大块
+		// 当前地址的对齐粒度：低 trailing 位为 0，则可对齐到前缀 (bitLen - trailing)。
+		// big.Int.TrailingZeroBits 对 0 返回 0（无置位），故 cur==0 时需特殊处理：
+		// 全零地址可对齐到整个地址空间（trailing=bitLen，即 /0 块），仍受 end 限制缩小。
+		var trailing int
+		if cur.Sign() == 0 {
+			trailing = bitLen
+		} else {
+			trailing = int(cur.TrailingZeroBits())
 		}
 		// 块大小 = 2^trailing，块末尾 = cur + (2^trailing - 1)
 		blockSize := new(big.Int).Lsh(bigOne, uint(trailing))

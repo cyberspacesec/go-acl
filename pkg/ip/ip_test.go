@@ -955,3 +955,30 @@ func TestIPRange_LookupLongestPrefix(t *testing.T) {
 		t.Errorf("期望非空最长前缀，得到空串")
 	}
 }
+
+// TestIPRange_FullSpaceOptimal 验证全零起点覆盖整个地址空间时展开为最少 CIDR（/0）
+func TestIPRange_FullSpaceOptimal(t *testing.T) {
+	acl, err := NewIPACL([]string{"0.0.0.0-255.255.255.255"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	// 整个 IPv4 空间都应 Denied
+	if perm, _ := acl.Check("0.0.0.0"); perm != types.Denied {
+		t.Errorf("0.0.0.0 应 Denied，得到 %s", perm)
+	}
+	if perm, _ := acl.Check("128.0.0.0"); perm != types.Denied {
+		t.Errorf("128.0.0.0 应 Denied，得到 %s", perm)
+	}
+	if perm, _ := acl.Check("255.255.255.255"); perm != types.Denied {
+		t.Errorf("255.255.255.255 应 Denied，得到 %s", perm)
+	}
+	// IPv6 地址不应被 IPv4 区间命中
+	if perm, _ := acl.Check("::1"); perm != types.Allowed {
+		t.Errorf("::1 应 Allowed（IPv4 区间不覆盖 IPv6），得到 %s", perm)
+	}
+	// 验证展开条数合理（整个 IPv4 空间应展开为少量 CIDR，而非 2^32 条）
+	ranges := acl.GetIPRanges()
+	if len(ranges) > 2 {
+		t.Errorf("整个 IPv4 空间应展开为 <=2 条 CIDR，得到 %d 条: %v", len(ranges), ranges)
+	}
+}
