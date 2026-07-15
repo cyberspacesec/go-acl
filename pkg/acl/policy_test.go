@@ -219,3 +219,71 @@ func TestApplyPolicy_DomainWildcard(t *testing.T) {
 		t.Errorf("notevil.com 应 Allowed，得到 %s", perm)
 	}
 }
+
+// TestApplyPolicy_DomainPatterns 验证域名前缀/后缀/正则经 JSON Policy 端到端可用
+func TestApplyPolicy_DomainPatterns(t *testing.T) {
+	m := NewManager()
+	pol := &config.Policy{
+		Domain: &config.DomainPolicy{
+			Domains: []string{
+				"api.*",                  // 前缀
+				"*evil.com",              // 宽松后缀（标签边界，含主域）
+				`/^internal-\d+\.corp$/`, // 正则（匹配小写域名）
+			},
+			ListType:          "blacklist",
+			IncludeSubdomains: false,
+		},
+	}
+	if err := m.ApplyPolicy(pol); err != nil {
+		t.Fatalf("ApplyPolicy 失败: %v", err)
+	}
+	// 前缀命中
+	if perm, _ := m.CheckDomain("api.example.com"); perm != types.Denied {
+		t.Errorf("api.example.com 应 Denied，得到 %s", perm)
+	}
+	// 宽松后缀命中（含主域）
+	if perm, _ := m.CheckDomain("evil.com"); perm != types.Denied {
+		t.Errorf("evil.com 应 Denied，得到 %s", perm)
+	}
+	if perm, _ := m.CheckDomain("sub.evil.com"); perm != types.Denied {
+		t.Errorf("sub.evil.com 应 Denied，得到 %s", perm)
+	}
+	// 宽松后缀不误伤相邻域名
+	if perm, _ := m.CheckDomain("notevil.com"); perm != types.Allowed {
+		t.Errorf("notevil.com 应 Allowed，得到 %s", perm)
+	}
+	// 正则命中
+	if perm, _ := m.CheckDomain("internal-42.corp"); perm != types.Denied {
+		t.Errorf("internal-42.corp 应 Denied，得到 %s", perm)
+	}
+	// 无关域名放行
+	if perm, _ := m.CheckDomain("safe.org"); perm != types.Allowed {
+		t.Errorf("safe.org 应 Allowed，得到 %s", perm)
+	}
+}
+
+// TestApplyPolicy_IPInterval 验证 IP 区间语法经 JSON Policy 端到端可用
+func TestApplyPolicy_IPInterval(t *testing.T) {
+	m := NewManager()
+	pol := &config.Policy{
+		IP: &config.IPPolicy{
+			Ranges:   []string{"192.168.1.10-192.168.1.20", "2001:db8::1-2001:db8::5"},
+			ListType: "blacklist",
+		},
+	}
+	if err := m.ApplyPolicy(pol); err != nil {
+		t.Fatalf("ApplyPolicy 失败: %v", err)
+	}
+	if perm, _ := m.CheckIP("192.168.1.15"); perm != types.Denied {
+		t.Errorf("192.168.1.15 应 Denied，得到 %s", perm)
+	}
+	if perm, _ := m.CheckIP("192.168.1.25"); perm != types.Allowed {
+		t.Errorf("192.168.1.25 应 Allowed，得到 %s", perm)
+	}
+	if perm, _ := m.CheckIP("2001:db8::3"); perm != types.Denied {
+		t.Errorf("2001:db8::3 应 Denied，得到 %s", perm)
+	}
+	if perm, _ := m.CheckIP("2001:db8::6"); perm != types.Allowed {
+		t.Errorf("2001:db8::6 应 Allowed，得到 %s", perm)
+	}
+}
