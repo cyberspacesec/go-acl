@@ -2,6 +2,7 @@ package ip
 
 import (
 	"errors"
+	"math/big"
 	"net"
 	"strings"
 	"sync"
@@ -15,6 +16,8 @@ var (
 	ErrInvalidIP = errors.New("无效的IP地址格式")
 	// ErrInvalidCIDR 表示提供的CIDR格式无效
 	ErrInvalidCIDR = errors.New("无效的CIDR格式")
+	// ErrInvalidIPRange 表示提供的IP范围区间格式无效（如两端地址族不一致、起止反转）
+	ErrInvalidIPRange = errors.New("无效的IP范围区间格式")
 	// ErrIPNotFound 表示要操作的IP不在访问控制列表中
 	ErrIPNotFound = errors.New("IP不在列表中")
 	// ErrInvalidPredefinedSet 表示请求的预定义IP集合不存在
@@ -121,18 +124,23 @@ func NewIPACL(ipRanges []string, listType types.ListType) (*IPACL, error) {
 			continue
 		}
 
-		ipRange, err := parseIPRange(ipStr)
+		// 解析为 IPRange 列表（区间语法会展开为多条 CIDR）
+		ipRangesParsed, err := parseIPRangeList(ipStr)
 		if err != nil {
 			return nil, err
 		}
 
-		// 去重：规范化后相同的等价形式（如 IPv6 全写/压缩写法）只保留一条
-		if existsInRanges(acl.ranges, ipRange.Original) {
-			continue
+		// 去重：规范化后相同的等价形式（如 IPv6 全写/压缩写法）只保留一条；
+		// 区间规则的 Original 统一为 "start-end"，整组只去重一次。
+		if len(ipRangesParsed) > 0 {
+			if existsInRanges(acl.ranges, ipRangesParsed[0].Original) {
+				continue
+			}
 		}
-
-		acl.ranges = append(acl.ranges, *ipRange)
-		acl.trie.Insert(ipRange.IPNet)
+		for _, r := range ipRangesParsed {
+			acl.ranges = append(acl.ranges, r)
+			acl.trie.Insert(r.IPNet)
+		}
 	}
 
 	return acl, nil
@@ -205,19 +213,23 @@ func (a *IPACL) Add(ipRanges ...string) error {
 			continue
 		}
 
-		// 解析IP/CIDR
-		ipRange, err := parseIPRange(ipStr)
+		// 解析为 IPRange 列表（区间语法会展开为多条 CIDR）
+		ipRangesParsed, err := parseIPRangeList(ipStr)
 		if err != nil {
 			return err
 		}
 
-		// 去重：已存在则跳过
-		if _, ok := seen[ipRange.Original]; ok {
-			continue
+		// 区间规则整体去重：若其 Original 已存在则跳过整组
+		if len(ipRangesParsed) > 0 {
+			if _, ok := seen[ipRangesParsed[0].Original]; ok {
+				continue
+			}
+			seen[ipRangesParsed[0].Original] = struct{}{}
 		}
-		seen[ipRange.Original] = struct{}{}
-		a.ranges = append(a.ranges, *ipRange)
-		a.trie.Insert(ipRange.IPNet)
+		for _, r := range ipRangesParsed {
+			a.ranges = append(a.ranges, r)
+			a.trie.Insert(r.IPNet)
+		}
 	}
 
 	return nil
@@ -619,6 +631,129 @@ func parseIPRange(ipStr string) (*IPRange, error) {
 		IP:       ip,
 		IPNet:    ipNet,
 	}, nil
+}
+
+// rangeToCIDRs 将 [start, end] 闭区间转换为覆盖该区间且不重叠的最少 CIDR 列表。
+//
+// 标准字节边界合并算法：从 start 起，每次取当前地址能向右扩展到的最大 CIDR 块
+// （既不超出 end，也不越过当前字节内已置位的位），推进到该块末尾 +1，直至超过 end。
+//
+// start 与 end 必须同地址族（同为 IPv4 或同为 IPv6），且 start <= end（按字节序），
+// 否则返回 ErrInvalidIPRange。
+func rangeToCIDRs(start, end net.IP) ([]*net.IPNet, error) {
+	start = start.To16()
+	end = end.To16()
+	if start == nil || end == nil {
+		return nil, ErrInvalidIPRange
+	}
+	// 地址族一致性：IPv4 映射的 IPv6 形式 To4 非 nil；两端必须一致
+	start4 := start.To4()
+	end4 := end.To4()
+	if (start4 != nil) != (end4 != nil) {
+		return nil, ErrInvalidIPRange
+	}
+	// 用 math/big 表达地址与步长，彻底避免 IPv6 巨大区间下 int/uint64 溢出
+	bitLen := 128
+	if start4 != nil {
+		bitLen = 32
+	}
+	cur := new(big.Int).SetBytes(start.To16())
+	last := new(big.Int).SetBytes(end.To16())
+	if cur.Cmp(last) > 0 {
+		return nil, ErrInvalidIPRange
+	}
+
+	bigOne := big.NewInt(1)
+	var result []*net.IPNet
+	for cur.Cmp(last) <= 0 {
+		// 当前地址在 bitLen 位空间内的「最低置位」决定对齐粒度：
+		// cur 的低 trailing 个二进制位为 0，则可对齐到前缀 (bitLen - trailing)。
+		// big.Int.TrailingZeroBits 返回最低置位之前 0 的个数（cur=0 时返回 0）。
+		trailing := int(cur.TrailingZeroBits())
+		if trailing >= bitLen {
+			trailing = bitLen - 1 // cur 为全 0 的极端情况，取最大块
+		}
+		// 块大小 = 2^trailing，块末尾 = cur + (2^trailing - 1)
+		blockSize := new(big.Int).Lsh(bigOne, uint(trailing))
+		blockEnd := new(big.Int).Sub(new(big.Int).Add(cur, blockSize), bigOne)
+		// 若块末尾超过 last，逐步缩小 trailing（块减半）直至块末尾 <= last
+		for blockEnd.Cmp(last) > 0 && trailing > 0 {
+			trailing--
+			blockSize.Lsh(bigOne, uint(trailing))
+			blockEnd.Sub(new(big.Int).Add(cur, blockSize), bigOne)
+		}
+		ones := bitLen - trailing
+		// 用 16 字节大端表示构造 CIDR 的 IP 与掩码
+		ipBytes := make([]byte, 16)
+		cur.FillBytes(ipBytes) // 高位补零到 16 字节
+		ipNet := &net.IPNet{
+			IP:   net.IP(ipBytes),
+			Mask: net.CIDRMask(ones, bitLen),
+		}
+		result = append(result, ipNet)
+		// 推进到当前块末尾 +1
+		cur.Add(cur, blockSize)
+	}
+	return result, nil
+}
+
+// parseIPRangeList 解析单个规则串，返回其对应的 IPRange 列表。
+//
+// 支持三种语法：
+//  1. CIDR（含 /）→ 单条 IPRange
+//  2. 区间 a-b（含 - 且非 CIDR）→ 展开为覆盖 [a,b] 的多条 CIDR IPRange
+//  3. 单 IP → 单条 IPRange（/32 或 /128）
+//
+// 区间语法要求两端为同地址族的有效 IP；Original 统一记为 "start-end"（规范化形式）。
+//
+// normalizeIPString 对含 '-' 但无 '/' 的串会原样返回（net.ParseIP 失败），
+// 故先 normalize 再判断区间语法不会破坏输入。
+func parseIPRangeList(ipStr string) ([]IPRange, error) {
+	normalized := normalizeIPString(ipStr)
+
+	// CIDR 优先（含 /）
+	if strings.Contains(normalized, "/") {
+		r, err := parseIPRange(normalized)
+		if err != nil {
+			return nil, err
+		}
+		return []IPRange{*r}, nil
+	}
+
+	// 区间语法 a-b（含且仅含一个 -，且两端不含 /）。
+	// 限定单个 '-' 以区分纯非法串（如 "not-an-ip" 含多个 '-'，应按单 IP 解析报 ErrInvalidIP）。
+	if !strings.Contains(normalized, "/") && strings.Count(normalized, "-") == 1 {
+		parts := strings.SplitN(normalized, "-", 2)
+		if len(parts) != 2 {
+			return nil, ErrInvalidIPRange
+		}
+		startIP := net.ParseIP(strings.TrimSpace(parts[0]))
+		endIP := net.ParseIP(strings.TrimSpace(parts[1]))
+		if startIP == nil || endIP == nil {
+			return nil, ErrInvalidIPRange
+		}
+		cidrs, err := rangeToCIDRs(startIP, endIP)
+		if err != nil {
+			return nil, err
+		}
+		original := startIP.String() + "-" + endIP.String()
+		ranges := make([]IPRange, 0, len(cidrs))
+		for _, c := range cidrs {
+			ranges = append(ranges, IPRange{
+				Original: original,
+				IP:       c.IP,
+				IPNet:    c,
+			})
+		}
+		return ranges, nil
+	}
+
+	// 单 IP
+	r, err := parseIPRange(normalized)
+	if err != nil {
+		return nil, err
+	}
+	return []IPRange{*r}, nil
 }
 
 // normalizeIPString 将 IP/CIDR 字符串规范化为稳定形式，

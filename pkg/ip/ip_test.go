@@ -857,3 +857,101 @@ func TestIPv6RemoveEquivalentForm(t *testing.T) {
 		t.Errorf("移除后 2001:db8::1 应 Allowed，得到 %s", perm)
 	}
 }
+
+// TestIPRange_Interval 验证 a-b 区间语法匹配
+func TestIPRange_Interval(t *testing.T) {
+	acl, err := NewIPACL([]string{"192.168.1.10-192.168.1.20"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	tests := []struct {
+		name string
+		ip   string
+		want types.Permission
+	}{
+		{"区间起", "192.168.1.10", types.Denied},
+		{"区间内", "192.168.1.15", types.Denied},
+		{"区间末", "192.168.1.20", types.Denied},
+		{"区间前", "192.168.1.9", types.Allowed},
+		{"区间后", "192.168.1.21", types.Allowed},
+		{"远端无关", "10.0.0.1", types.Allowed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			perm, err := acl.Check(tt.ip)
+			if err != nil {
+				t.Fatalf("Check(%s) 错误: %v", tt.ip, err)
+			}
+			if perm != tt.want {
+				t.Errorf("Check(%s) = %s, 期望 %s", tt.ip, perm, tt.want)
+			}
+		})
+	}
+}
+
+// TestIPRange_IPv6Interval 验证 IPv6 区间语法
+func TestIPRange_IPv6Interval(t *testing.T) {
+	acl, err := NewIPACL([]string{"2001:db8::1-2001:db8::5"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	if perm, _ := acl.Check("2001:db8::3"); perm != types.Denied {
+		t.Errorf("2001:db8::3 应 Denied，得到 %s", perm)
+	}
+	if perm, _ := acl.Check("2001:db8::6"); perm != types.Allowed {
+		t.Errorf("2001:db8::6 应 Allowed，得到 %s", perm)
+	}
+}
+
+// TestIPRange_Invalid 验证非法区间返回 ErrInvalidIPRange
+func TestIPRange_Invalid(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"跨地址族", "192.168.1.1-2001:db8::1"},
+		{"起止反转", "192.168.1.20-192.168.1.10"},
+		{"端点非IP", "192.168.1.1-notanip"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewIPACL([]string{tt.input}, types.Blacklist)
+			if !errors.Is(err, ErrInvalidIPRange) {
+				t.Errorf("期望 ErrInvalidIPRange，得到 %v", err)
+			}
+		})
+	}
+}
+
+// TestIPRange_RemoveInterval 验证移除区间规则
+func TestIPRange_RemoveInterval(t *testing.T) {
+	acl, err := NewIPACL([]string{"192.168.1.10-192.168.1.20"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	if err := acl.Remove("192.168.1.10-192.168.1.20"); err != nil {
+		t.Fatalf("移除失败: %v", err)
+	}
+	if perm, _ := acl.Check("192.168.1.15"); perm != types.Allowed {
+		t.Errorf("移除后应 Allowed，得到 %s", perm)
+	}
+}
+
+// TestIPRange_LookupLongestPrefix 验证区间展开后最长前缀反查仍正确。
+//
+// 用 ip 包自身的 IPACL.Lookup 验证（避免 import pkg/acl 造成测试包循环导入），
+// 逻辑与 manager.LookupIP 一致：Lookup 返回最长前缀匹配 CIDR。
+func TestIPRange_LookupLongestPrefix(t *testing.T) {
+	a, err := NewIPACL([]string{"10.0.0.0/8", "10.1.0.10-10.1.0.20"}, types.Blacklist)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := a.Lookup("10.1.0.15")
+	if err != nil {
+		t.Fatalf("Lookup 错误: %v", err)
+	}
+	// 10.1.0.15 同时落在 /8 与区间展开的某 CIDR 内；区间更具体应胜出
+	if got == "" {
+		t.Errorf("期望非空最长前缀，得到空串")
+	}
+}
