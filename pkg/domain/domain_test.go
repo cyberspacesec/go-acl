@@ -1349,3 +1349,74 @@ func TestDomainACL_MultipleWildcards(t *testing.T) {
 		t.Errorf("notbad.org 应 Allowed，得到 %s", perm)
 	}
 }
+
+// TestDomainACL_Prefix 验证 api.* 仅匹配以 api. 开头的域名
+func TestDomainACL_Prefix(t *testing.T) {
+	acl := NewDomainACL([]string{"api.*"}, types.Blacklist, false)
+	// 前缀子域命中
+	if perm, _ := acl.Check("api.example.com"); perm != types.Denied {
+		t.Errorf("api.example.com 应 Denied，得到 %s", perm)
+	}
+	// 多层命中
+	if perm, _ := acl.Check("api.sub.example.com"); perm != types.Denied {
+		t.Errorf("api.sub.example.com 应 Denied，得到 %s", perm)
+	}
+	// 非该前缀不命中
+	if perm, _ := acl.Check("example.com"); perm != types.Allowed {
+		t.Errorf("example.com 应 Allowed，得到 %s", perm)
+	}
+	if perm, _ := acl.Check("web.example.com"); perm != types.Allowed {
+		t.Errorf("web.example.com 应 Allowed，得到 %s", perm)
+	}
+}
+
+// TestDomainACL_LooseSuffix 验证 *example.com 宽松后缀含主域
+func TestDomainACL_LooseSuffix(t *testing.T) {
+	acl := NewDomainACL([]string{"*evil.com"}, types.Blacklist, false)
+	// 主域本身命中（与 *.evil.com 的关键区别）
+	if perm, _ := acl.Check("evil.com"); perm != types.Denied {
+		t.Errorf("evil.com 主域应 Denied（宽松后缀含主域），得到 %s", perm)
+	}
+	// 子域命中
+	if perm, _ := acl.Check("sub.evil.com"); perm != types.Denied {
+		t.Errorf("sub.evil.com 应 Denied，得到 %s", perm)
+	}
+	// 相邻域名不误匹配
+	if perm, _ := acl.Check("notevil.com"); perm != types.Allowed {
+		t.Errorf("notevil.com 应 Allowed，得到 %s", perm)
+	}
+}
+
+// TestDomainACL_LooseSuffixVsWildcard 验证 *x 与 *.x 语义可区分且可共存
+func TestDomainACL_LooseSuffixVsWildcard(t *testing.T) {
+	// *evil.com 含主域；*.evil.com 仅子域
+	acl := NewDomainACL([]string{"*evil.com"}, types.Blacklist, false)
+	if perm, _ := acl.Check("evil.com"); perm != types.Denied {
+		t.Errorf("*evil.com 应命中主域 evil.com，得到 %s", perm)
+	}
+	wcl := NewDomainACL([]string{"*.evil.com"}, types.Blacklist, false)
+	if perm, _ := wcl.Check("evil.com"); perm != types.Allowed {
+		t.Errorf("*.evil.com 不应命中主域 evil.com，得到 %s", perm)
+	}
+}
+
+// TestDomainACL_RemovePrefixAndLooseSuffix 验证移除前缀与宽松后缀规则
+func TestDomainACL_RemovePrefixAndLooseSuffix(t *testing.T) {
+	acl := NewDomainACL([]string{"api.*", "*evil.com"}, types.Blacklist, false)
+	if err := acl.Remove("api.*"); err != nil {
+		t.Fatalf("移除前缀失败: %v", err)
+	}
+	if perm, _ := acl.Check("api.example.com"); perm != types.Allowed {
+		t.Errorf("移除 api.* 后应 Allowed，得到 %s", perm)
+	}
+	// 宽松后缀仍在
+	if perm, _ := acl.Check("evil.com"); perm != types.Denied {
+		t.Errorf("evil.com 应仍 Denied，得到 %s", perm)
+	}
+	if err := acl.Remove("*evil.com"); err != nil {
+		t.Fatalf("移除宽松后缀失败: %v", err)
+	}
+	if perm, _ := acl.Check("sub.evil.com"); perm != types.Allowed {
+		t.Errorf("移除 *evil.com 后应 Allowed，得到 %s", perm)
+	}
+}

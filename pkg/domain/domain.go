@@ -41,7 +41,11 @@ type DomainACL struct {
 	// domainSet 是 domains 的 set 镜像，用于 includeSubdomains=false 时的 O(1) 精确匹配
 	domainSet map[string]struct{}
 	// wildcardSuffixes 存放通配规则 *.example.com 的裸后缀，用于仅子域名匹配（不含主域本身）
-	wildcardSuffixes  []string
+	wildcardSuffixes []string
+	// prefixes 存放前缀规则 api.* 的裸前缀，匹配 api.example.com 但不匹配 example.com
+	prefixes []string
+	// looseSuffixes 存放宽松后缀规则 *example.com 的裸后缀，匹配 example.com 主域本身及其任意子域（标签边界匹配）
+	looseSuffixes     []string
 	listType          types.ListType
 	includeSubdomains bool
 }
@@ -197,6 +201,44 @@ func (d *DomainACL) Add(domains ...string) error {
 			continue
 		}
 
+		// 前缀规则 api.* → 存裸前缀，匹配 api.example.com 但不匹配 example.com
+		if isPrefixDomain(normalizedDomain) {
+			prefix := stripPrefix(normalizedDomain)
+			if prefix == "" {
+				continue
+			}
+			found := false
+			for _, existing := range d.prefixes {
+				if existing == prefix {
+					found = true
+					break
+				}
+			}
+			if !found {
+				d.prefixes = append(d.prefixes, prefix)
+			}
+			continue
+		}
+
+		// 宽松后缀规则 *example.com → 存裸后缀，匹配 example.com 主域本身及其任意子域（标签边界匹配）
+		if isLooseSuffixDomain(normalizedDomain) {
+			suffix := stripStar(normalizedDomain)
+			if suffix == "" {
+				continue
+			}
+			found := false
+			for _, existing := range d.looseSuffixes {
+				if existing == suffix {
+					found = true
+					break
+				}
+			}
+			if !found {
+				d.looseSuffixes = append(d.looseSuffixes, suffix)
+			}
+			continue
+		}
+
 		// 普通规则进主表
 		exists := false
 		for _, existingDomain := range d.domains {
@@ -250,28 +292,35 @@ func (d *DomainACL) Remove(domains ...string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// 构建待删除的标准化集合，区分通配与普通
+	// 构建待删除的标准化集合，区分各特殊语法
 	var wildcardToRemove []string
+	var prefixToRemove []string
+	var looseSuffixToRemove []string
 	toRemove := make(map[string]struct{}, len(domains))
 	for _, dom := range domains {
 		n := normalizeDomain(dom)
 		if n == "" {
 			continue
 		}
-		if isWildcardDomain(n) {
+		switch {
+		case isWildcardDomain(n):
 			wildcardToRemove = append(wildcardToRemove, stripWildcard(n))
-		} else {
+		case isPrefixDomain(n):
+			prefixToRemove = append(prefixToRemove, stripPrefix(n))
+		case isLooseSuffixDomain(n):
+			looseSuffixToRemove = append(looseSuffixToRemove, stripStar(n))
+		default:
 			toRemove[n] = struct{}{}
 		}
 	}
 	// 传入了参数但全部标准化后为空：视为未找到，保持与旧版一致的错误语义
-	if len(toRemove) == 0 && len(wildcardToRemove) == 0 {
+	if len(toRemove) == 0 && len(wildcardToRemove) == 0 && len(prefixToRemove) == 0 && len(looseSuffixToRemove) == 0 {
 		return ErrDomainNotFound
 	}
 
 	removed := 0
 
-	// 先处理通配删除（就地过滤复用底层数组）
+	// 通配删除（就地过滤复用底层数组）
 	if len(wildcardToRemove) > 0 {
 		newSuffixes := d.wildcardSuffixes[:0]
 		for _, existing := range d.wildcardSuffixes {
@@ -291,7 +340,47 @@ func (d *DomainACL) Remove(domains ...string) error {
 		d.wildcardSuffixes = newSuffixes
 	}
 
-	// 再处理普通删除
+	// 前缀删除
+	if len(prefixToRemove) > 0 {
+		newPrefixes := d.prefixes[:0]
+		for _, existing := range d.prefixes {
+			drop := false
+			for _, p := range prefixToRemove {
+				if existing == p {
+					drop = true
+					break
+				}
+			}
+			if drop {
+				removed++
+				continue
+			}
+			newPrefixes = append(newPrefixes, existing)
+		}
+		d.prefixes = newPrefixes
+	}
+
+	// 宽松后缀删除
+	if len(looseSuffixToRemove) > 0 {
+		newLoose := d.looseSuffixes[:0]
+		for _, existing := range d.looseSuffixes {
+			drop := false
+			for _, s := range looseSuffixToRemove {
+				if existing == s {
+					drop = true
+					break
+				}
+			}
+			if drop {
+				removed++
+				continue
+			}
+			newLoose = append(newLoose, existing)
+		}
+		d.looseSuffixes = newLoose
+	}
+
+	// 普通删除
 	var newDomains []string
 	for _, existing := range d.domains {
 		if _, drop := toRemove[existing]; drop {
@@ -371,10 +460,16 @@ func (d *DomainACL) GetDomains() []string {
 	defer d.mu.RUnlock()
 
 	// 返回副本以防止外部修改
-	result := make([]string, 0, len(d.domains)+len(d.wildcardSuffixes))
+	result := make([]string, 0, len(d.domains)+len(d.wildcardSuffixes)+len(d.prefixes)+len(d.looseSuffixes))
 	result = append(result, d.domains...)
 	for _, s := range d.wildcardSuffixes {
 		result = append(result, "*."+s)
+	}
+	for _, p := range d.prefixes {
+		result = append(result, p+".*")
+	}
+	for _, s := range d.looseSuffixes {
+		result = append(result, "*"+s)
 	}
 	return result
 }
@@ -485,6 +580,20 @@ func (d *DomainACL) matchDomain(domain string) bool {
 		}
 	}
 
+	// 前缀规则：api.* 匹配 api.example.com 等以 api. 开头者，但不含 example.com 本身
+	for _, prefix := range d.prefixes {
+		if strings.HasPrefix(domain, prefix+".") {
+			return true
+		}
+	}
+
+	// 宽松后缀规则：*example.com 匹配 example.com 主域本身及其任意子域（在标签边界匹配，避免 notevil.com 这类相邻域名误命中）
+	for _, suffix := range d.looseSuffixes {
+		if domain == suffix || strings.HasSuffix(domain, "."+suffix) {
+			return true
+		}
+	}
+
 	// 不含子域名匹配：O(1) 精确查找
 	if !d.includeSubdomains {
 		if d.domainSet != nil {
@@ -522,6 +631,27 @@ func isWildcardDomain(d string) bool {
 // stripWildcard 去除 *. 前缀，返回裸后缀
 func stripWildcard(d string) string {
 	return strings.TrimPrefix(d, "*.")
+}
+
+// isPrefixDomain 判断规则是否为前缀形式 api.*
+func isPrefixDomain(d string) bool {
+	return strings.HasSuffix(d, ".*")
+}
+
+// stripPrefix 去除 .* 后缀，返回裸前缀
+func stripPrefix(d string) string {
+	return strings.TrimSuffix(d, ".*")
+}
+
+// isLooseSuffixDomain 判断规则是否为宽松后缀形式 *example.com（无点，含主域及其子域）
+// 注意：*.example.com（含点）是通配仅子域规则，由 isWildcardDomain 处理，不在此列
+func isLooseSuffixDomain(d string) bool {
+	return strings.HasPrefix(d, "*") && !strings.HasPrefix(d, "*.")
+}
+
+// stripStar 去除 * 前缀，返回裸后缀
+func stripStar(d string) string {
+	return strings.TrimPrefix(d, "*")
 }
 
 // normalizeDomain 标准化域名，删除不必要的部分
