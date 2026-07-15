@@ -291,7 +291,14 @@ func (a *IPACL) Remove(ipRanges ...string) error {
 		if strings.TrimSpace(ipStr) == "" {
 			continue
 		}
-		found[normalizeIPString(ipStr)] = false
+		// 与 Add 走同一规范化路径：parseIPRangeList 对区间/单 IP/CIDR
+		// 均返回与 Add 存储一致的 Original（区间两端经 net.ParseIP().String() 规范化）。
+		// 解析失败的无效串回退 normalizeIPString，保持既有 ErrIPNotFound 语义。
+		key := normalizeIPString(ipStr)
+		if parsed, err := parseIPRangeList(ipStr); err == nil && len(parsed) > 0 {
+			key = parsed[0].Original
+		}
+		found[key] = false
 	}
 
 	// 创建新的IP范围列表，排除要移除的
@@ -465,11 +472,17 @@ func (a *IPACL) GetIPRanges() []string {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	ipRanges := make([]string, len(a.ranges))
-	for i, ipRange := range a.ranges {
-		ipRanges[i] = ipRange.Original
+	// 去重：区间规则展开为多条 CIDR 但共享同一 Original，展示时只返回一次。
+	seen := make(map[string]struct{}, len(a.ranges))
+	result := make([]string, 0, len(a.ranges))
+	for _, r := range a.ranges {
+		if _, ok := seen[r.Original]; ok {
+			continue
+		}
+		seen[r.Original] = struct{}{}
+		result = append(result, r.Original)
 	}
-	return ipRanges
+	return result
 }
 
 // GetRules 返回当前IP/CIDR规则列表的副本

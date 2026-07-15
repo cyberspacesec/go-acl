@@ -982,3 +982,43 @@ func TestIPRange_FullSpaceOptimal(t *testing.T) {
 		t.Errorf("整个 IPv4 空间应展开为 <=2 条 CIDR，得到 %d 条: %v", len(ranges), ranges)
 	}
 }
+
+// TestIPRange_RemoveEquivalentForm 验证区间规则可用等价形式（含空格/IPv6 全写）移除
+func TestIPRange_RemoveEquivalentForm(t *testing.T) {
+	// 含空格的区间能 Add，用紧凑形式 Remove
+	acl, err := NewIPACL([]string{"192.168.1.10 - 192.168.1.20"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	if err := acl.Remove("192.168.1.10-192.168.1.20"); err != nil {
+		t.Fatalf("用紧凑形式移除含空格添加的区间失败: %v", err)
+	}
+	if perm, _ := acl.Check("192.168.1.15"); perm != types.Allowed {
+		t.Errorf("移除后应 Allowed，得到 %s", perm)
+	}
+
+	// IPv6 等价形式：全写添加，压缩形式移除
+	acl2, err := NewIPACL([]string{"2001:0db8::0001-2001:0db8::0005"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	if err := acl2.Remove("2001:db8::1-2001:db8::5"); err != nil {
+		t.Fatalf("用压缩形式移除全写添加的 IPv6 区间失败: %v", err)
+	}
+	if perm, _ := acl2.Check("2001:db8::3"); perm != types.Allowed {
+		t.Errorf("移除后应 Allowed，得到 %s", perm)
+	}
+}
+
+// TestIPRange_GetIPRangesDedup 验证 GetIPRanges 对区间去重为单条
+func TestIPRange_GetIPRangesDedup(t *testing.T) {
+	acl, err := NewIPACL([]string{"10.0.0.5-10.0.0.130", "8.8.8.8"}, types.Blacklist)
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	ranges := acl.GetIPRanges()
+	// 区间去重为 1 条 + 单 IP 1 条 = 2 条
+	if len(ranges) != 2 {
+		t.Errorf("应返回 2 条（区间去重 + 单IP），得到 %d 条: %v", len(ranges), ranges)
+	}
+}
