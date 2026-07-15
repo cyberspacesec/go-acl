@@ -197,6 +197,12 @@ permission, err := manager.CheckDomain("api.example.com")
 // 通配符规则 *.example.com 仅匹配子域，不含主域本身（适合"放行主站、阻止子域"场景）
 manager.SetDomainACL([]string{"*.evil.com"}, types.Blacklist, false)
 // evil.com 放行，phishing.evil.com 阻止
+
+// 前缀 api.* 匹配以 api. 开头的域名（不含主域）
+// 宽松后缀 *example.com 匹配 example.com 主域及其任意子域（标签边界，区别于 *.example.com 仅子域、且不误伤 notexample.com）
+// 正则 /pattern/ 按声明顺序匹配（基于 RE2 无回溯，防 ReDoS）；注意 Check 会先将域名小写化，故正则匹配小写域名
+manager.SetDomainACL([]string{"api.*", "*evil.com", `/^internal-\d+\.corp$/`}, types.Blacklist, false)
+// api.example.com 阻止，evil.com 阻止，notevil.com 放行，internal-7.corp 阻止
 ```
 
 ### IP控制
@@ -217,6 +223,10 @@ manager.RemoveIP("8.8.8.8")
 manager.SetIPACL([]string{"10.0.0.0/8", "2001:db8::/32"}, types.Blacklist)
 // 反查 IP 所属最长前缀 CIDR
 cidr, _ := manager.LookupIP("10.1.2.3") // "10.1.0.0/16"
+
+// IP 区间 start-end 覆盖闭区间，自动按字节边界合并为最少 CIDR（支持 IPv4/IPv6）
+manager.SetIPACL([]string{"192.168.1.10-192.168.1.20", "2001:db8::1-2001:db8::5"}, types.Blacklist)
+// 192.168.1.15 阻止，192.168.1.25 放行，2001:db8::3 阻止
 ```
 
 ### 文件导入导出
@@ -328,6 +338,8 @@ manager.AddPredefinedDomainSet(domain.TrustedCDN, true) // 白名单 + true = �
 | **预定义域名集合** | 演示短链/一次性邮箱/可信 CDN 等域名集合的外联管控 | [查看示例](examples/09_domain_predefined_sets/) |
 | **子域名通配 ACL** | 演示 *.domain 仅子域访问控制 | [查看示例](examples/10_subdomain_acl/) |
 | **IPv6 子网与反查** | 演示 IPv6 子网匹配与最长前缀反查 | [查看示例](examples/11_ipv6_subnet_acl/) |
+| **域名模式匹配** | 演示前缀/宽松后缀/正则维度 | [查看示例](examples/12_domain_pattern_acl/) |
+| **IP 区间 ACL** | 演示 start-end 区间与 IPv6 区间 | [查看示例](examples/13_ip_range_acl/) |
 
 查看[示例目录](examples/)获取完整示例代码。
 

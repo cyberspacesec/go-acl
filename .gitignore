@@ -6,6 +6,8 @@
 /09_domain_predefined_sets
 /10_subdomain_acl
 /11_ipv6_subnet_acl
+/12_domain_pattern_acl
+/13_ip_range_acl
 # Certificate files (for certificate-hacker)
 # Configuration files with sensitive data
 # Coverage reports
