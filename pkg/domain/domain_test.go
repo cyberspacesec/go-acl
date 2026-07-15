@@ -1529,3 +1529,24 @@ func TestDomainACL_RegexCoexist(t *testing.T) {
 		t.Errorf("应返回 3 条规则，得到 %d: %v", len(domains), domains)
 	}
 }
+
+// TestDomainACL_RegexMatchesLowercasedDomain 验证正则匹配的是 normalizeDomain 小写化后的域名
+// （域名大小写不敏感的规范后果）。大小写敏感正则（含 [A-Z]）对域名主体不生效。
+func TestDomainACL_RegexMatchesLowercasedDomain(t *testing.T) {
+	// 大写 API- 在小写化后永不出现，故该正则不会命中任何域名
+	acl := NewDomainACL([]string{`/^API-[0-9]+\.example\.com$/`}, types.Blacklist, false)
+	if perm, _ := acl.Check("API-1.example.com"); perm != types.Allowed {
+		t.Errorf("含 [A-Z] 的正则对小写化域名不应命中，API-1.example.com 应 Allowed，得到 %s", perm)
+	}
+	if perm, _ := acl.Check("api-1.example.com"); perm != types.Allowed {
+		t.Errorf("api-1.example.com 应 Allowed（正则期望大写 API- 不匹配小写），得到 %s", perm)
+	}
+	// 对照：小写正则正常命中
+	lower := NewDomainACL([]string{`/^api-[0-9]+\.example\.com$/`}, types.Blacklist, false)
+	if perm, _ := lower.Check("API-1.example.com"); perm != types.Denied {
+		t.Errorf("小写正则应命中小写化后的 api-1.example.com（Check 先小写化），得到 %s", perm)
+	}
+	if perm, _ := lower.Check("api-1.example.com"); perm != types.Denied {
+		t.Errorf("api-1.example.com 应 Denied，得到 %s", perm)
+	}
+}

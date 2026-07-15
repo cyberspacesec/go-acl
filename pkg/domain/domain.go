@@ -659,7 +659,10 @@ func (d *DomainACL) matchDomain(domain string) bool {
 		}
 	}
 
-	// 正则规则：按声明顺序 MatchString，命中即返回
+	// 正则规则：按声明顺序 MatchString，命中即返回。
+	// 注意：Check 会先将待查域名经 normalizeDomain 小写化，故正则匹配的是小写域名主体。
+	// 这是域名大小写不敏感（DNS 规范）的后果：正则中不应依赖 [A-Z] 等大写字符类，
+	// 应按小写形式书写（如 /^api-\d+\.example\.com$/）。
 	for _, re := range d.regexes {
 		if re.MatchString(domain) {
 			return true
