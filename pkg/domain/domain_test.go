@@ -1420,3 +1420,48 @@ func TestDomainACL_RemovePrefixAndLooseSuffix(t *testing.T) {
 		t.Errorf("移除 *evil.com 后应 Allowed，得到 %s", perm)
 	}
 }
+
+// TestDomainACL_GetDomainsRoundTrip 验证 GetDomains 输出可作为 Add 输入重建等价 ACL
+//
+// 构造覆盖全部匹配维度的 ACL（精确 / 通配 *.x / 前缀 api.* / 宽松后缀 *safe.com），
+// 取 GetDomains() 输出重建新 ACL，断言两者对一组测试域名 Check 结果完全一致。
+// 关键用例：原 ACL 含 *.evil.com（仅子域）但不含 *evil.com，故 evil.com 主域在
+// blacklist 下应 Allowed——重建 ACL 必须与此一致，不可把 *.evil.com 升格为 *evil.com。
+func TestDomainACL_GetDomainsRoundTrip(t *testing.T) {
+	domains := []string{"example.com", "*.evil.com", "api.*", "*safe.com"}
+	original := NewDomainACL(domains, types.Blacklist, false)
+
+	// 取 GetDomains 输出重建等价 ACL（同 listType、同 includeSubdomains）
+	rebuilt := NewDomainACL(original.GetDomains(), types.Blacklist, false)
+
+	// 重建后的规则集应逐字还原（顺序无关，排序后比对）
+	want := append([]string{}, domains...)
+	sort.Strings(want)
+	got := append([]string{}, rebuilt.GetDomains()...)
+	sort.Strings(got)
+	if !reflect.DeepEqual(want, got) {
+		t.Fatalf("GetDomains 往返后规则集不一致:\nwant=%v\ngot =%v", want, got)
+	}
+
+	// 对覆盖各匹配维度的测试域名，两个 ACL 的 Check 结果必须逐一致
+	cases := []struct {
+		domain string
+	}{
+		{"example.com"},  // 精确命中
+		{"sub.evil.com"}, // 通配 *.evil.com 命中子域
+		{"evil.com"},     // *.evil.com 不含主域 → blacklist 下 Allowed
+		{"api.foo.com"},  // 前缀 api.* 命中
+		{"sub.safe.com"}, // 宽松后缀 *safe.com 命中子域
+		{"other.org"},    // 无任何规则命中 → blacklist 下 Allowed
+	}
+	for _, c := range cases {
+		origPerm, origErr := original.Check(c.domain)
+		newPerm, newErr := rebuilt.Check(c.domain)
+		if origErr != nil || newErr != nil {
+			t.Fatalf("Check(%s) 出现非预期错误: orig=%v new=%v", c.domain, origErr, newErr)
+		}
+		if origPerm != newPerm {
+			t.Errorf("往返不一致: Check(%s) 原=%s 重建=%s", c.domain, origPerm, newPerm)
+		}
+	}
+}
