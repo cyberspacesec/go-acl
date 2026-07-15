@@ -2,6 +2,8 @@ package domain
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -45,7 +47,11 @@ type DomainACL struct {
 	// prefixes 存放前缀规则 api.* 的裸前缀，匹配 api.example.com 但不匹配 example.com
 	prefixes []string
 	// looseSuffixes 存放宽松后缀规则 *example.com 的裸后缀，匹配 example.com 主域本身及其任意子域（标签边界匹配）
-	looseSuffixes     []string
+	looseSuffixes []string
+	// regexes 存放正则规则 /pattern/ 编译后的正则，按声明顺序匹配
+	regexes []*regexp.Regexp
+	// regexSources 存放正则规则的原文（用于 GetDomains 还原与 Remove 匹配）
+	regexSources      []string
 	listType          types.ListType
 	includeSubdomains bool
 }
@@ -175,6 +181,33 @@ func (d *DomainACL) Add(domains ...string) error {
 	defer d.mu.Unlock()
 
 	for _, domain := range domains {
+		// 正则规则 /pattern/ 必须用原文判断与处理：normalizeDomain 会把首字符 "/" 当作
+		// 路径分隔符截断、且 ToLower 会破坏 \D 等大小写敏感的正则转义，故正则规则绕过标准化。
+		if isRegexRule(domain) {
+			pattern := stripRegexSlashes(domain)
+			if pattern == "" {
+				continue
+			}
+			// 已存在原文则跳过
+			found := false
+			for _, src := range d.regexSources {
+				if src == pattern {
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
+			re, err := regexp.Compile(pattern)
+			if err != nil {
+				return fmt.Errorf("无效的正则规则 %q: %w", pattern, err)
+			}
+			d.regexes = append(d.regexes, re)
+			d.regexSources = append(d.regexSources, pattern)
+			continue
+		}
+
 		normalizedDomain := normalizeDomain(domain)
 		if normalizedDomain == "" {
 			// 空域名或经标准化后为空，按既有语义忽略
@@ -296,8 +329,14 @@ func (d *DomainACL) Remove(domains ...string) error {
 	var wildcardToRemove []string
 	var prefixToRemove []string
 	var looseSuffixToRemove []string
+	var regexToRemove []string
 	toRemove := make(map[string]struct{}, len(domains))
 	for _, dom := range domains {
+		// 正则规则用原文判断，绕过 normalizeDomain（同 Add）
+		if isRegexRule(dom) {
+			regexToRemove = append(regexToRemove, stripRegexSlashes(dom))
+			continue
+		}
 		n := normalizeDomain(dom)
 		if n == "" {
 			continue
@@ -314,7 +353,7 @@ func (d *DomainACL) Remove(domains ...string) error {
 		}
 	}
 	// 传入了参数但全部标准化后为空：视为未找到，保持与旧版一致的错误语义
-	if len(toRemove) == 0 && len(wildcardToRemove) == 0 && len(prefixToRemove) == 0 && len(looseSuffixToRemove) == 0 {
+	if len(toRemove) == 0 && len(wildcardToRemove) == 0 && len(prefixToRemove) == 0 && len(looseSuffixToRemove) == 0 && len(regexToRemove) == 0 {
 		return ErrDomainNotFound
 	}
 
@@ -378,6 +417,29 @@ func (d *DomainACL) Remove(domains ...string) error {
 			newLoose = append(newLoose, existing)
 		}
 		d.looseSuffixes = newLoose
+	}
+
+	// 正则删除（regexes 与 regexSources 索引一一对应，同步过滤）
+	if len(regexToRemove) > 0 {
+		newRegexes := d.regexes[:0]
+		newSources := d.regexSources[:0]
+		for i, src := range d.regexSources {
+			drop := false
+			for _, r := range regexToRemove {
+				if src == r {
+					drop = true
+					break
+				}
+			}
+			if drop {
+				removed++
+				continue
+			}
+			newRegexes = append(newRegexes, d.regexes[i])
+			newSources = append(newSources, src)
+		}
+		d.regexes = newRegexes
+		d.regexSources = newSources
 	}
 
 	// 普通删除
@@ -460,7 +522,7 @@ func (d *DomainACL) GetDomains() []string {
 	defer d.mu.RUnlock()
 
 	// 返回副本以防止外部修改
-	result := make([]string, 0, len(d.domains)+len(d.wildcardSuffixes)+len(d.prefixes)+len(d.looseSuffixes))
+	result := make([]string, 0, len(d.domains)+len(d.wildcardSuffixes)+len(d.prefixes)+len(d.looseSuffixes)+len(d.regexSources))
 	result = append(result, d.domains...)
 	for _, s := range d.wildcardSuffixes {
 		result = append(result, "*."+s)
@@ -470,6 +532,9 @@ func (d *DomainACL) GetDomains() []string {
 	}
 	for _, s := range d.looseSuffixes {
 		result = append(result, "*"+s)
+	}
+	for _, src := range d.regexSources {
+		result = append(result, "/"+src+"/")
 	}
 	return result
 }
@@ -594,6 +659,13 @@ func (d *DomainACL) matchDomain(domain string) bool {
 		}
 	}
 
+	// 正则规则：按声明顺序 MatchString，命中即返回
+	for _, re := range d.regexes {
+		if re.MatchString(domain) {
+			return true
+		}
+	}
+
 	// 不含子域名匹配：O(1) 精确查找
 	if !d.includeSubdomains {
 		if d.domainSet != nil {
@@ -652,6 +724,16 @@ func isLooseSuffixDomain(d string) bool {
 // stripStar 去除 * 前缀，返回裸后缀
 func stripStar(d string) string {
 	return strings.TrimPrefix(d, "*")
+}
+
+// isRegexRule 判断规则是否为正则形式 /pattern/（首尾斜杠包围）
+func isRegexRule(d string) bool {
+	return len(d) >= 2 && strings.HasPrefix(d, "/") && strings.HasSuffix(d, "/")
+}
+
+// stripRegexSlashes 去除首尾斜杠，返回正则原文
+func stripRegexSlashes(d string) string {
+	return d[1 : len(d)-1]
 }
 
 // normalizeDomain 标准化域名，删除不必要的部分

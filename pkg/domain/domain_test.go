@@ -1465,3 +1465,67 @@ func TestDomainACL_GetDomainsRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// TestDomainACL_Regex 验证 /pattern/ 正则匹配
+func TestDomainACL_Regex(t *testing.T) {
+	acl := NewDomainACL([]string{`/^api-\d+\.example\.com$/`}, types.Blacklist, false)
+	// 命中
+	if perm, _ := acl.Check("api-1.example.com"); perm != types.Denied {
+		t.Errorf("api-1.example.com 应 Denied，得到 %s", perm)
+	}
+	if perm, _ := acl.Check("api-99.example.com"); perm != types.Denied {
+		t.Errorf("api-99.example.com 应 Denied，得到 %s", perm)
+	}
+	// 不命中
+	if perm, _ := acl.Check("api.example.com"); perm != types.Allowed {
+		t.Errorf("api.example.com 应 Allowed，得到 %s", perm)
+	}
+	if perm, _ := acl.Check("api-x.example.com"); perm != types.Allowed {
+		t.Errorf("api-x.example.com 应 Allowed，得到 %s", perm)
+	}
+}
+
+// TestDomainACL_RegexInvalid 验证无效正则返回错误
+//
+// NewDomainACL 返回 *DomainACL（无 error）且内部吞掉 Add 错误，
+// 故用空 ACL 显式调用 Add 断言 error。
+func TestDomainACL_RegexInvalid(t *testing.T) {
+	acl := NewDomainACL(nil, types.Blacklist, false)
+	err := acl.Add(`/^(unbalanced$/`)
+	if err == nil {
+		t.Fatal("无效正则应返回错误，得到 nil")
+	}
+}
+
+// TestDomainACL_RemoveRegex 验证移除正则规则
+func TestDomainACL_RemoveRegex(t *testing.T) {
+	acl := NewDomainACL([]string{`/^api-\d+\.example\.com$/`}, types.Blacklist, false)
+	if err := acl.Remove(`/^api-\d+\.example\.com$/`); err != nil {
+		t.Fatalf("移除正则失败: %v", err)
+	}
+	if perm, _ := acl.Check("api-1.example.com"); perm != types.Allowed {
+		t.Errorf("移除后应 Allowed，得到 %s", perm)
+	}
+}
+
+// TestDomainACL_RegexCoexist 验证正则与通配/精确规则共存
+func TestDomainACL_RegexCoexist(t *testing.T) {
+	acl := NewDomainACL([]string{`/^api-\d+\.example\.com$/`, "*.evil.com", "exact.com"}, types.Blacklist, false)
+	// 正则命中
+	if perm, _ := acl.Check("api-5.example.com"); perm != types.Denied {
+		t.Errorf("正则应命中 api-5.example.com，得到 %s", perm)
+	}
+	// 通配命中
+	if perm, _ := acl.Check("sub.evil.com"); perm != types.Denied {
+		t.Errorf("通配应命中 sub.evil.com，得到 %s", perm)
+	}
+	// 精确命中
+	if perm, _ := acl.Check("exact.com"); perm != types.Denied {
+		t.Errorf("精确应命中 exact.com，得到 %s", perm)
+	}
+	// GetDomains 返回三类规则
+	domains := acl.GetDomains()
+	if len(domains) != 3 {
+		t.Errorf("应返回 3 条规则，得到 %d: %v", len(domains), domains)
+	}
+}
