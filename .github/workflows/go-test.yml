@@ -10,17 +10,17 @@ jobs:
   test:
     name: 测试
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
-        go-version: [1.18.x, 1.19.x, 1.20.x, 1.21.x]
+        go-version: ['1.18.x', '1.21.x', '1.22.x', '1.23.x', '1.24.x']
 
     steps:
       - name: 检出代码
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: 设置 Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
@@ -31,8 +31,8 @@ jobs:
       - name: 运行单元测试
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-      - name: 生成覆盖率徽章
-        uses: codecov/codecov-action@v3
+      - name: 上传覆盖率
+        uses: codecov/codecov-action@v5
         with:
           files: ./coverage.txt
           flags: unittests
@@ -43,24 +43,20 @@ jobs:
     name: 示例代码测试
     runs-on: ubuntu-latest
     needs: test
-    
-    strategy:
-      matrix:
-        go-version: [1.21.x]  # 使用最新稳定版本运行示例
 
     steps:
       - name: 检出代码
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
-      - name: 设置 Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v4
+      - name: 设置 Go
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: '1.24.x'
           cache: true
 
       - name: 安装依赖
         run: go mod download
-      
+
       - name: 运行所有示例
         run: |
           chmod +x examples/run_all.sh
@@ -69,22 +65,22 @@ jobs:
   lint:
     name: 代码检查
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: 检出代码
-        uses: actions/checkout@v3
-      
+        uses: actions/checkout@v5
+
       - name: 设置 Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.21.x
+          go-version: '1.24.x'
           cache: true
-      
-      - name: 安装 golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-      
-      - name: 运行 golangci-lint
-        run: golangci-lint run --timeout=5m
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
 
   benchmark:
     name: 性能基准测试
@@ -94,24 +90,23 @@ jobs:
 
     steps:
       - name: 检出代码
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: 设置 Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.21.x
+          go-version: '1.24.x'
           cache: true
 
       - name: 安装依赖
         run: go mod download
 
       - name: 运行基准测试
-        run: go test -run=^$ -bench=. -benchmem -timeout=10m ./...
+        run: go test -run=^$ -bench=. -benchmem -timeout=10m ./... | tee benchmark.txt
 
       - name: 上传基准结果
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v5
         with:
           name: benchmark-results
-          path: |
-            ${{ github.workspace }}
+          path: benchmark.txt
           if-no-files-found: ignore

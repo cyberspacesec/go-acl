@@ -3,9 +3,9 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.18+-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go版本" />
   <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="许可证" />
-  <img src="https://img.shields.io/badge/Coverage-96.7%25-success?style=for-the-badge" alt="测试覆盖率" />
+  <img src="https://img.shields.io/codecov/c/github/cyberspacesec/acl-skills?style=for-the-badge&logo=codecov&logoColor=white" alt="测试覆盖率" />
   <img src="https://img.shields.io/github/workflow/status/cyberspacesec/acl-skills/Go%20Tests?style=for-the-badge&logo=github&label=tests" alt="测试状态" />
-  <img src="https://img.shields.io/github/workflow/status/cyberspacesec/acl-skills/Go%20Tests?style=for-the-badge&logo=github&label=examples&event=workflow_run" alt="示例测试" />
+  <img src="https://img.shields.io/github/v/release/cyberspacesec/acl-skills?style=for-the-badge&logo=github&label=release&include_prereleases" alt="发布版本" />
 </p>
 
 <p align="center">
@@ -396,3 +396,28 @@ CI 在每次推送时自动运行基准测试（`benchmark` job，不阻塞主�
 ## 📜 许可证
 
 该项目采用MIT许可证 - 有关详细信息，请查看[LICENSE](LICENSE)文件。
+
+## 📌 版本策略
+
+本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
+
+### API 稳定性
+
+自 `v1.0.0` 起，以下 API 保证向后兼容（仅在主版本升级时可能破坏）：
+
+- `types` 包：`ACL`、`ListTypeACL`、`MutableACL` 接口及 `ListType`、`Permission` 枚举。
+- `domain.DomainACL` 与 `ip.IPACL` 的 `Check`/`Add`/`Remove`/`GetRules`/`GetListType` 方法。
+- `acl.Manager` 的 `Set*`/`Check*`/`Add*`/`Remove*`/`Get*`/`LookupIP` 方法。
+- `config.Policy` 结构及其 JSON 字段。
+- `middleware.New` 与 `Options` 字段。
+
+### 实验性 API
+
+以下 API 可能在次版本中调整，使用前请评估：
+
+- `Manager.RegisterACL` / `UnregisterACL`（自定义 ACL 注册机制，稳定后转入稳定 API）。
+- `SetDomainACLStrict`（新增，行为稳定但签名观察中）。
+
+## 📜 发布记录
+
+详见 [CHANGELOG.md](CHANGELOG.md)。
