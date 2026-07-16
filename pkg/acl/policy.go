@@ -57,7 +57,9 @@ func (m *Manager) ApplyPolicy(p *config.Policy) error {
 				return fmt.Errorf("apply domain policy: %w", err)
 			}
 		} else {
-			m.SetDomainACL(domains, listType, p.Domain.IncludeSubdomains)
+			if err := m.SetDomainACLStrict(domains, listType, p.Domain.IncludeSubdomains); err != nil {
+				return fmt.Errorf("apply domain policy: %w", err)
+			}
 		}
 	}
 

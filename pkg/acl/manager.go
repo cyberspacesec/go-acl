@@ -118,6 +118,42 @@ func (m *Manager) SetDomainACL(domains []string, listType types.ListType, includ
 	m.acls[KindDomain] = domain.NewDomainACL(domains, listType, includeSubdomains)
 }
 
+// SetDomainACLStrict 设置域名访问控制列表，返回无效域名错误。
+//
+// 与 SetDomainACL 行为一致，但在解析域名失败时返回 error 而非静默忽略，
+// 使调用方能感知无效输入。与 SetIPACL 的错误返回语义对称。
+//
+// 参数:
+//   - domains: 要控制的域名列表
+//   - listType: 列表类型（黑名单或白名单）
+//   - includeSubdomains: 是否包含子域名匹配
+//
+// 返回:
+//   - error: 域名解析失败时返回错误（具体错误类型由 domain 层定义）
+//
+// 此方法覆盖之前设置的任何域名访问控制列表。
+//
+// 示例:
+//
+//	err := manager.SetDomainACLStrict(
+//	    []string{"malware.example.com", "bad..domain"},
+//	    types.Blacklist,
+//	    true,
+//	)
+//	if err != nil {
+//	    log.Printf("设置域名ACL失败: %v", err)
+//	}
+func (m *Manager) SetDomainACLStrict(domains []string, listType types.ListType, includeSubdomains bool) error {
+	a, err := domain.NewDomainACLStrict(domains, listType, includeSubdomains)
+	if err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.acls[KindDomain] = a
+	return nil
+}
+
 // SetDomainACLWithDefaults 设置域名访问控制列表，并包含预定义的域名集合
 //
 // 参数:

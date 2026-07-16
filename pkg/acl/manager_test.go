@@ -742,3 +742,33 @@ func TestManager_LookupIP(t *testing.T) {
 		t.Fatalf("期望 ErrInvalidIP，得到 %v", err)
 	}
 }
+
+func TestManager_SetDomainACLStrict_EmptyIgnored(t *testing.T) {
+	m := NewManager()
+	// 空串与空白串被忽略，不报错
+	err := m.SetDomainACLStrict([]string{"", "  "}, types.Blacklist, false)
+	if err != nil {
+		t.Fatalf("空串应被忽略不报错，got: %v", err)
+	}
+}
+
+func TestManager_SetDomainACLStrict_ValidDomains(t *testing.T) {
+	m := NewManager()
+	err := m.SetDomainACLStrict([]string{"evil.example.com", "malware.test"}, types.Blacklist, true)
+	if err != nil {
+		t.Fatalf("有效域名不应报错，got: %v", err)
+	}
+	perm, err := m.CheckDomain("evil.example.com")
+	if err != nil || perm != types.Denied {
+		t.Errorf("黑名单命中应拒绝，got perm=%v err=%v", perm, err)
+	}
+}
+
+func TestManager_SetDomainACLStrict_InvalidRegex(t *testing.T) {
+	m := NewManager()
+	// 无效正则 /(unclosed/ 在 Add 中会报错
+	err := m.SetDomainACLStrict([]string{"/(unclosed/"}, types.Blacklist, true)
+	if err == nil {
+		t.Fatal("无效正则应报错，got nil")
+	}
+}

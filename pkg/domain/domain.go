@@ -106,6 +106,26 @@ func NewDomainACL(domains []string, listType types.ListType, includeSubdomains b
 	return acl
 }
 
+// NewDomainACLStrict 创建域名 ACL，解析失败时返回错误。
+//
+// 与 NewDomainACL 行为一致，但无效域名会返回 error 而非静默忽略，
+// 供需要严格校验的场景使用。
+//
+// 注意：NewDomainACL 内部调用 Add 并丢弃了 error（domain.go:105 `_ = acl.Add(...)`），
+// 故本函数不能简单复用 NewDomainACL 再 Add（会重复解析且无法捕获首次错误）。
+// 这里先构造空 ACL，再走 Add 的校验路径，使无效域名能被正确返回。
+func NewDomainACLStrict(domains []string, listType types.ListType, includeSubdomains bool) (*DomainACL, error) {
+	acl := &DomainACL{
+		listType:          listType,
+		includeSubdomains: includeSubdomains,
+		domainSet:         make(map[string]struct{}),
+	}
+	if err := acl.Add(domains...); err != nil {
+		return nil, err
+	}
+	return acl, nil
+}
+
 // NewDomainACLWithDefaults 创建一个新的域名访问控制列表，同时加入预定义的域名集合
 //
 // 参数:
