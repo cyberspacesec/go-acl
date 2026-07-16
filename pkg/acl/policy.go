@@ -51,7 +51,7 @@ func (m *Manager) ApplyPolicy(p *config.Policy) error {
 		for _, name := range p.Domain.PredefinedSets {
 			predefinedSets = append(predefinedSets, domain.PredefinedSet(name))
 		}
-		// 有预定义集合用 SetDomainACLWithDefaults，否则用 SetDomainACL；一次性注入合并后的 domains
+		// 有预定义集合用 SetDomainACLWithDefaults，否则用 SetDomainACLStrict；一次性注入合并后的 domains
 		if len(predefinedSets) > 0 {
 			if err := m.SetDomainACLWithDefaults(domains, listType, p.Domain.IncludeSubdomains, predefinedSets, p.Domain.AllowPredefined); err != nil {
 				return fmt.Errorf("apply domain policy: %w", err)
