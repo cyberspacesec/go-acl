@@ -772,3 +772,24 @@ func TestManager_SetDomainACLStrict_InvalidRegex(t *testing.T) {
 		t.Fatal("无效正则应报错，got nil")
 	}
 }
+
+func TestManager_SetDomainACLStrict_FailureDoesNotClobberExisting(t *testing.T) {
+	m := NewManager()
+	// 先用有效域名建立一个域名 ACL
+	if err := m.SetDomainACLStrict([]string{"keep.example.com"}, types.Blacklist, true); err != nil {
+		t.Fatalf("首次设置有效域名不应失败: %v", err)
+	}
+	// 再用含无效正则的列表调用 strict，应失败
+	err := m.SetDomainACLStrict([]string{"keep.example.com", "/(unclosed/"}, types.Blacklist, true)
+	if err == nil {
+		t.Fatal("含无效正则应返回错误，got nil")
+	}
+	// 失败不应污染既有 ACL：原 keep.example.com 仍应命中拒绝
+	perm, checkErr := m.CheckDomain("keep.example.com")
+	if checkErr != nil {
+		t.Fatalf("CheckDomain 不应报错: %v", checkErr)
+	}
+	if perm != types.Denied {
+		t.Errorf("strict 失败后既有 ACL 应保留，keep.example.com 应仍被拒绝，got perm=%v", perm)
+	}
+}
