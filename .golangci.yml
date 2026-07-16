@@ -19,9 +19,6 @@ issues:
     - linters:
         - staticcheck
       text: "SA1019:"  # 忽略已弃用API使用的警告
-    - linters:
-        - stylecheck
-      text: "ST1000:"  # 忽略包注释格式警告
 
   # 只显示新问题
   new: true
