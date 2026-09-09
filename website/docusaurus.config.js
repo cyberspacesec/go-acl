@@ -7,7 +7,7 @@ const darkCodeTheme = themes.dracula;
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'acl-skills',
-  tagline: '强大、高效、易用的 Go 访问控制列表库',
+  tagline: '为 AI Agent 而生的 Go ACL 库 — SSRF 防护、域名/IP 访问控制、HTTP 中间件',
   favicon: 'img/favicon.ico',
 
   url: 'https://cyberspacesec.github.io',
